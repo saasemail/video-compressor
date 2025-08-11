@@ -81,17 +81,63 @@ async function loadPresets() {
   presets = await resp.json();
 }
 
+/* Grupisanje/sortiranje “ostalih” preseta — stabilno i predvidivo */
+function groupRank(p) {
+  const id = (p.id || '');
+  if (id.startsWith('9x16_'))  return 0;  // Vertical
+  if (id.startsWith('4x5_'))   return 1;  // Portrait
+  if (id.startsWith('1x1_'))   return 2;  // Square
+  if (id.startsWith('16x9_'))  return 3;  // Landscape
+  if (id === 'discord_8mb')    return 4;  // Discord special
+  if (id.startsWith('im_'))    return 5;  // Chat size-capped
+  if (id.startsWith('email_')) return 6;  // Email size-capped
+  if (id === 'source_friendly')return 7;  // Utility
+  return 8;
+}
+function scoreByResFps(p) {
+  // Pokušaj da izvučeš rez/fps iz ID-ja (npr. _1080_60, _720_30)
+  const m = (p.id || '').match(/_(\d{3,4})(?:_(\d{2}))?$/);
+  const res = m ? parseInt(m[1], 10) : (p.maxHeight || 0);
+  const fps = m && m[2] ? parseInt(m[2], 10) : (p.fps || 0);
+  // veći skor = viši prioritet: veća rezolucija iznad manje;
+  // za fps preferiramo 30 ispred 60 unutar iste rezolucije (stabilnije za wasm)
+  const fpsBoost = (fps === 30 ? 2 : fps === 60 ? 1 : 0);
+  return res * 100 + fpsBoost;
+}
+function sortOthers(arr) {
+  return arr.slice().sort((a, b) => {
+    // PRO (zaključani) gore radi konverzije
+    const la = isPresetLocked(a.id) ? 0 : 1;
+    const lb = isPresetLocked(b.id) ? 0 : 1;
+    if (la !== lb) return la - lb;
+
+    const ga = groupRank(a), gb = groupRank(b);
+    if (ga !== gb) return ga - gb;
+
+    const sa = scoreByResFps(a), sb = scoreByResFps(b);
+    if (sa !== sb) return sb - sa;
+
+    return (a.label || '').localeCompare(b.label || '');
+  });
+}
+
 function renderPresets() {
   topPresetsContainer.innerHTML = '';
   otherPresetsContainer.innerHTML = '';
 
-  // Top 3 koje želimo gore
+  // Top 3 koje želimo gore (fiksan redosled)
   const topIds = ['im_16mb', 'email_25mb', 'quick_720p'];
-  const top = presets.filter(p => topIds.includes(p.id));
-  const others = presets.filter(p => !topIds.includes(p.id));
+  const byId = new Map(presets.map(p => [p.id, p]));
+  topIds.forEach(id => {
+    const p = byId.get(id);
+    if (p) topPresetsContainer.appendChild(createPresetCard(p));
+  });
 
-  top.forEach(preset => topPresetsContainer.appendChild(createPresetCard(preset)));
-  others.forEach(preset => otherPresetsContainer.appendChild(createPresetCard(preset)));
+  // Ostali sortirani deterministički
+  const others = presets.filter(p => !topIds.includes(p.id));
+  sortOthers(others).forEach(preset => {
+    otherPresetsContainer.appendChild(createPresetCard(preset));
+  });
 }
 
 function createPresetCard(preset) {

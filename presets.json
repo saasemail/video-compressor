@@ -166,5 +166,48 @@
     "fps": 60,
     "audioKbps": 128,
     "crf": 22
+  },
+
+  { 
+    "id": "discord_8mb",
+    "label": "Discord (≤8 MB)",
+    "hint": "Fits Discord's free 8 MB upload limit.",
+    "category": "Size-capped",
+    "mode": "size",
+    "sizeTargetMB": 8,
+    "aspect": "keep",
+    "fit": "contain",
+    "maxHeight": 480,
+    "fps": 24,
+    "audioKbps": 64,
+    "crf": 24
+  },
+  {
+    "id": "9x16_720_30",
+    "label": "Vertical 9:16 • 720p @30",
+    "hint": "Light vertical for Stories/Reels/TikTok; faster encode.",
+    "category": "Aspect/quality",
+    "mode": "quality",
+    "sizeTargetMB": 40,
+    "aspect": "9:16",
+    "fit": "cover",
+    "maxHeight": 720,
+    "fps": 30,
+    "audioKbps": 96,
+    "crf": 23
+  },
+  {
+    "id": "16x9_720_30",
+    "label": "Landscape 16:9 • 720p @30",
+    "hint": "Light landscape for quick uploads and previews.",
+    "category": "Aspect/quality",
+    "mode": "quality",
+    "sizeTargetMB": 40,
+    "aspect": "16:9",
+    "fit": "contain",
+    "maxHeight": 720,
+    "fps": 30,
+    "audioKbps": 96,
+    "crf": 22
   }
 ]
