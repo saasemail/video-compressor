@@ -22,7 +22,7 @@
         <span class="underline">Presets</span>
       </h1>
       <p class="hero-subtitle">
-        Compress &amp; resize videos instantly. Privacy‑first. In your browser.
+        Compress &amp; resize videos instantly. Privacy-first. In your browser.
       </p>
       <div class="hero-actions">
         <input type="file" id="fileInput" accept="video/*" hidden />
@@ -43,8 +43,17 @@
       <section id="customSection" class="custom-section">
         <h2 class="section-title">Custom builder</h2>
         <div id="customPanel" class="custom-panel"></div>
-        <div id="customLock" class="lock-overlay hidden">
-          <p>This feature is available in Pro.</p>
+
+        <!-- Umesto agresivnog overlaya, mala zaključana kartica -->
+        <div id="customLock" class="lock-overlay hidden" role="note" aria-live="polite">
+          <div class="lock-row">
+            <svg class="icon-lock" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="currentColor"
+                d="M12 1a5 5 0 00-5 5v3H6a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2v-8a2 2 0 00-2-2h-1V6a5 5 0 00-5-5zm-3 8V6a3 3 0 016 0v3H9zm3 4a2 2 0 110 4 2 2 0 010-4z"/>
+            </svg>
+            <span>Custom builder is a Pro feature.</span>
+            <button type="button" class="btn btn-secondary btn-ghost" id="learnMorePro">Learn more</button>
+          </div>
         </div>
       </section>
 
@@ -68,9 +77,22 @@
 
     <footer class="footer">
       <p class="footnote">
-        Privacy‑first · Works in your browser · PWA
+        Privacy-first · Works in your browser · PWA
       </p>
     </footer>
+
+    <!-- Mali toast umesto ogromnog bannera -->
+    <div id="proToast" class="toast hidden" role="status" aria-live="polite">
+      <svg class="toast-icon" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+        <path fill="currentColor"
+          d="M12 1a5 5 0 00-5 5v3H6a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2v-8a2 2 0 00-2-2h-1V6a5 5 0 00-5-5zm-3 8V6a3 3 0 016 0v3H9zm3 4a2 2 0 110 4 2 2 0 010-4z"/>
+      </svg>
+      <div class="toast-text">
+        <strong>Pro feature</strong>
+        <span id="proToastMsg"> This feature is available in Pro. </span>
+      </div>
+      <button class="toast-close" aria-label="Close" onclick="hideProToast()">×</button>
+    </div>
 
     <script type="module" src="./app.js"></script>
   </body>

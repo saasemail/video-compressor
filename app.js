@@ -1,5 +1,6 @@
 // app.js
 // Main logic for the Video Compressor Presets web app.
+
 import {
   getPlan,
   canRender,
@@ -10,7 +11,6 @@ import {
   getDelay
 } from './licensing.js';
 
-const presetSection = document.getElementById('presetSection');
 const topPresetsContainer = document.getElementById('topPresets');
 const otherPresetsContainer = document.getElementById('otherPresets');
 const customPanel = document.getElementById('customPanel');
@@ -29,55 +29,74 @@ let selectedFile = null;
 let ffmpeg = null;
 let ffmpegReady = false;
 
+/* ---------- Toast (Pro hint) ---------- */
+function showProToast(msg = 'This feature is available in Pro.') {
+  const t = document.getElementById('proToast');
+  const span = document.getElementById('proToastMsg');
+  if (!t) return;
+  if (span) span.textContent = ' ' + msg + ' ';
+  t.classList.remove('hidden');
+  clearTimeout(window.__proToastTimer);
+  window.__proToastTimer = setTimeout(() => t.classList.add('hidden'), 2500);
+}
+function hideProToast() {
+  const t = document.getElementById('proToast');
+  if (t) t.classList.add('hidden');
+  clearTimeout(window.__proToastTimer);
+}
+// expose for inline handler in index.html (module scope isn't global)
+window.showProToast = showProToast;
+window.hideProToast = hideProToast;
+
+/* ---------- Presets ---------- */
 async function loadPresets() {
   const resp = await fetch('./presets.json');
   presets = await resp.json();
 }
 
 function renderPresets() {
-  // Clear existing content
   topPresetsContainer.innerHTML = '';
   otherPresetsContainer.innerHTML = '';
-  // Determine top presets by fixed IDs
+
   const topIds = ['im_16mb', 'email_25mb', '9x16_1080_30'];
   const top = presets.filter(p => topIds.includes(p.id));
   const others = presets.filter(p => !topIds.includes(p.id));
-  top.forEach(preset => {
-    const card = createPresetCard(preset);
-    topPresetsContainer.appendChild(card);
-  });
-  others.forEach(preset => {
-    const card = createPresetCard(preset);
-    otherPresetsContainer.appendChild(card);
-  });
+
+  top.forEach(preset => topPresetsContainer.appendChild(createPresetCard(preset)));
+  others.forEach(preset => otherPresetsContainer.appendChild(createPresetCard(preset)));
 }
 
 function createPresetCard(preset) {
   const card = document.createElement('div');
   card.className = 'preset-card';
+
   const header = document.createElement('div');
   header.className = 'preset-header';
+
   const title = document.createElement('div');
   title.className = 'preset-title';
   title.textContent = preset.label;
+
   const category = document.createElement('div');
   category.className = 'preset-category';
   category.textContent = preset.category;
+
   header.appendChild(title);
   header.appendChild(category);
   card.appendChild(header);
-  // Add locked overlay if needed
-  if (isPresetLocked(preset.id)) {
+
+  const locked = isPresetLocked(preset.id);
+  if (locked) {
     card.classList.add('locked');
     const lock = document.createElement('div');
     lock.className = 'lock-icon';
     lock.innerHTML = '&#128274;';
     header.appendChild(lock);
   }
-  // Add click handler
+
   card.addEventListener('click', async () => {
-    if (isPresetLocked(preset.id)) {
-      alert('This preset is available in the Pro plan.');
+    if (locked) {
+      showProToast('This preset is available in Pro.');
       return;
     }
     if (!selectedFile) {
@@ -86,18 +105,23 @@ function createPresetCard(preset) {
     }
     await startProcessing(preset);
   });
+
   return card;
 }
 
+/* ---------- Custom builder ---------- */
 function renderCustomBuilder() {
-  // If custom builder is disabled, show overlay and return.
   if (!isCustomEnabled()) {
     customLock.classList.remove('hidden');
     customPanel.innerHTML = '';
+    // wire "Learn more"
+    const learn = document.getElementById('learnMorePro');
+    if (learn) learn.onclick = () => showProToast('Custom builder is available in Pro.');
     return;
   }
+
   customLock.classList.add('hidden');
-  // Build form elements for custom preset
+
   const fragment = document.createDocumentFragment();
 
   // Aspect ratio
@@ -150,7 +174,7 @@ function renderCustomBuilder() {
   fragment.appendChild(fpsLabel);
   fragment.appendChild(fpsInput);
 
-  // Mode (size or quality)
+  // Mode
   const modeLabel = document.createElement('label');
   modeLabel.textContent = 'Mode';
   const modeSelect = document.createElement('select');
@@ -164,7 +188,7 @@ function renderCustomBuilder() {
   fragment.appendChild(modeLabel);
   fragment.appendChild(modeSelect);
 
-  // Size target (MB) / CRF input depending on mode
+  // Size target
   const sizeLabel = document.createElement('label');
   sizeLabel.id = 'customSizeLabel';
   sizeLabel.textContent = 'Target size (MB)';
@@ -176,7 +200,7 @@ function renderCustomBuilder() {
   fragment.appendChild(sizeLabel);
   fragment.appendChild(sizeInput);
 
-  // CRF input (hidden by default; used for quality mode)
+  // CRF
   const crfLabel = document.createElement('label');
   crfLabel.id = 'customCrfLabel';
   crfLabel.textContent = 'Quality (CRF)';
@@ -203,7 +227,7 @@ function renderCustomBuilder() {
   fragment.appendChild(audioLabel);
   fragment.appendChild(audioInput);
 
-  // Submit button
+  // Submit
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'btn btn-primary';
@@ -226,12 +250,11 @@ function renderCustomBuilder() {
       audioKbps: parseInt(audioInput.value, 10) || 128,
       crf: parseInt(crfInput.value, 10) || 23
     };
-    // Use rules for gating: custom builder is enabled if we got here
     await startProcessing(customPreset);
   });
   fragment.appendChild(btn);
 
-  // Update UI based on mode selection
+  // Toggle size/quality inputs
   modeSelect.addEventListener('change', () => {
     const isSize = modeSelect.value === 'size';
     sizeLabel.style.display = isSize ? 'block' : 'none';
@@ -244,31 +267,38 @@ function renderCustomBuilder() {
   customPanel.appendChild(fragment);
 }
 
+/* ---------- Processing ---------- */
 async function startProcessing(preset) {
   const fileSizeMB = selectedFile.size / (1024 * 1024);
   const permission = canRender(fileSizeMB);
   if (!permission.allowed) {
-    alert(permission.reason);
+    showProToast(permission.reason || 'Upgrade to Pro for this action.');
     return;
   }
-  // Optionally wait (free delay)
+
+  // Optional free delay
   const delay = getDelay();
   if (delay > 0) {
     progressSection.classList.remove('hidden');
     progressLabel.textContent = 'Preparing...';
     await new Promise(res => setTimeout(res, delay));
   }
+
   progressSection.classList.remove('hidden');
   progressBar.style.width = '0%';
   progressLabel.textContent = 'Loading encoder...';
   await ensureFFmpegLoaded();
+
   progressLabel.textContent = 'Reading video...';
   const inputData = await readFileAsArrayBuffer(selectedFile);
-  // Determine video duration using HTMLVideoElement
+
+  // Determine duration
   const durationSec = await getVideoDuration(selectedFile);
+
   progressLabel.textContent = 'Compressing...';
   const result = await compressVideo(preset, inputData, durationSec);
-  // Save result file to download
+
+  // Present result
   const blob = new Blob([result.buffer], { type: 'video/mp4' });
   const url = URL.createObjectURL(blob);
   resultVideo.src = url;
@@ -276,16 +306,13 @@ async function startProcessing(preset) {
   downloadLink.download = generateDownloadName(selectedFile.name, preset);
   resultSection.classList.remove('hidden');
   progressSection.classList.add('hidden');
-  // Save count
+
+  // Count + nags
   incrementRenderCount();
-  // Display nag for free plan
   const { name } = getPlan();
-  if (name === 'free') {
-    nagMessage.textContent =
-      'Spremno! Trenutno 720p + watermark. Pro uskoro: bez watermarka, batch, ∞ rendersa.';
-  } else {
-    nagMessage.textContent = '';
-  }
+  nagMessage.textContent = (name === 'free')
+    ? 'Spremno! Trenutno 720p + watermark. Pro uskoro: bez watermarka, batch, ∞ rendersa.'
+    : '';
 }
 
 function generateDownloadName(originalName, preset) {
@@ -295,11 +322,13 @@ function generateDownloadName(originalName, preset) {
 
 async function ensureFFmpegLoaded() {
   if (ffmpegReady) return;
-  // Dynamically import ffmpeg.wasm from unpkg; 0.12.1 version as of Feb 2025
-  const { createFFmpeg, fetchFile } = await import('https://unpkg.com/@ffmpeg/ffmpeg@0.12.1/dist/ffmpeg.min.js?module');
-  ffmpeg = createFFmpeg({ log: false, corePath: 'https://unpkg.com/@ffmpeg/core@0.12.1/dist/ffmpeg-core.js' });
+  const { createFFmpeg } = await import('https://unpkg.com/@ffmpeg/ffmpeg@0.12.1/dist/ffmpeg.min.js?module');
+  ffmpeg = createFFmpeg({
+    log: false,
+    corePath: 'https://unpkg.com/@ffmpeg/core@0.12.1/dist/ffmpeg-core.js'
+  });
   ffmpeg.setProgress(({ ratio }) => {
-    const percent = Math.min(100, Math.floor(ratio * 100));
+    const percent = Math.min(100, Math.floor((ratio || 0) * 100));
     progressBar.style.width = `${percent}%`;
     progressLabel.textContent = `Processing… ${percent}%`;
   });
@@ -325,104 +354,99 @@ async function getVideoDuration(file) {
   });
 }
 
+/* Build -vf filter string for scale/crop/pad */
 function buildFilter(preset) {
-  let filters = [];
-  // Scaling and aspect handling
+  const filters = [];
   const aspect = preset.aspect;
   const fit = preset.fit;
   const maxHeight = preset.maxHeight;
-  // Determine width and height for target frame
+
   let targetWidth = null;
   let targetHeight = null;
+
   if (maxHeight) {
     targetHeight = maxHeight;
     if (aspect && aspect !== 'keep') {
-      const ratioMap = {
-        '16:9': 16 / 9,
-        '9:16': 9 / 16,
-        '1:1': 1,
-        '4:5': 4 / 5
-      };
+      const ratioMap = { '16:9': 16/9, '9:16': 9/16, '1:1': 1, '4:5': 4/5 };
       const ratio = ratioMap[aspect];
       targetWidth = Math.round(maxHeight * ratio);
     }
   }
+
   if (!aspect || aspect === 'keep') {
     if (maxHeight) {
-      // scale down preserving aspect
+      // scale down preserving aspect; -2 keeps width divisible by 2
       filters.push(`scale=-2:${maxHeight}`);
     }
   } else if (fit === 'cover') {
-    // Crop to fill aspect
     const w = targetWidth;
     const h = targetHeight;
-    // first scale so smallest dimension fits, then crop
-    filters.push(
-      `scale=iw*max(${w}/iw\,${h}/ih):ih*max(${w}/iw\,${h}/ih),crop=${w}:${h}`
-    );
+    // scale so the smaller dimension fills, then crop center
+    filters.push(`scale=iw*max(${w}/iw,${h}/ih):ih*max(${w}/iw,${h}/ih),crop=${w}:${h}`);
   } else if (fit === 'contain') {
     const w = targetWidth;
     const h = targetHeight;
+    // scale to fit inside, then pad to requested frame
     filters.push(
-      `scale=iw*min(${w}/iw\,${h}/ih):ih*min(${w}/iw\,${h}/ih),pad=${w}:${h}:((${w}-iw*min(${w}/iw\,${h}/ih))/2):(( ${h}-ih*min(${w}/iw\,${h}/ih))/2)`
+      `scale=iw*min(${w}/iw,${h}/ih):ih*min(${w}/iw,${h}/ih),` +
+      `pad=${w}:${h}:((${w}-iw*min(${w}/iw,${h}/ih))/2):((${h}-ih*min(${w}/iw,${h}/ih))/2)`
     );
   }
+
   return filters.join(',');
 }
 
 async function compressVideo(preset, inputData, durationSec) {
-  // Write input file to FS
+  // Write input
   ffmpeg.FS('writeFile', 'input.mp4', inputData);
-  // Build output args
-  const args = ['-i', 'input.mp4'];
+
+  const argsBase = ['-i', 'input.mp4'];
+
   // Frame rate
   if (preset.fps) {
-    args.push('-r', preset.fps.toString());
+    argsBase.push('-r', String(preset.fps));
   }
-  // Build filter chain (scaling/cropping + optional watermark)
+
+  // Build filter chain (scale/crop/pad + watermark later)
   let filterChain = buildFilter(preset);
+
   // Mode-specific encoding
   if (preset.mode === 'size') {
-    // compute target bitrate (video) based on target size minus audio
-    const targetBytes = preset.sizeTargetMB * 1024 * 1024;
-    const audioBits = (preset.audioKbps || 128) * 1000 * durationSec;
-    const videoBits = Math.max(
-      300 * 1000 * durationSec,
-      targetBytes * 8 - audioBits
-    );
+    const targetBytes = (preset.sizeTargetMB || 25) * 1024 * 1024;
+    const audioKbps = (preset.audioKbps || 128);
+    const audioBits = audioKbps * 1000 * durationSec;
+    const videoBits = Math.max(300 * 1000 * durationSec, targetBytes * 8 - audioBits);
     const videoKbps = Math.floor(videoBits / durationSec / 1000);
-    args.push('-b:v', `${videoKbps}k`);
-    args.push('-maxrate', `${videoKbps}k`);
-    args.push('-bufsize', `${videoKbps * 2}k`);
-    args.push('-crf', (preset.crf || 23).toString());
+
+    argsBase.push('-b:v', `${videoKbps}k`, '-maxrate', `${videoKbps}k`, '-bufsize', `${videoKbps * 2}k`);
+    argsBase.push('-crf', String(preset.crf || 23));
   } else {
-    // quality mode
-    args.push('-crf', (preset.crf || 23).toString());
+    argsBase.push('-crf', String(preset.crf || 23));
   }
+
   // Audio
-  if (preset.audioKbps) {
-    args.push('-b:a', `${preset.audioKbps}k`);
-  }
-  args.push('-c:a', 'aac');
-  args.push('-movflags', 'faststart');
-  // Apply watermark if needed (only in free plan)
+  if (preset.audioKbps) argsBase.push('-b:a', `${preset.audioKbps}k`);
+  argsBase.push('-c:a', 'aac');
+  argsBase.push('-movflags', 'faststart');
+
+  // Watermark (safe fallback using drawbox – radi bez fontova)
   if (shouldWatermark()) {
-    const watermarkText = 'VideoCompressor';
-    const watermarkFilter = `drawtext=text='${watermarkText}':fontcolor=white@0.7:fontsize=24:x=10:y=h-40`;
-    filterChain = filterChain ? `${filterChain},${watermarkFilter}` : watermarkFilter;
+    const wm = `drawbox=x=10:y=H-50:w=180:h=36:color=white@0.14:t=fill`;
+    filterChain = filterChain ? `${filterChain},${wm}` : wm;
   }
-  if (filterChain) {
-    args.push('-vf', filterChain);
-  }
+  const args = [...argsBase];
+  if (filterChain) args.push('-vf', filterChain);
   args.push('output.mp4');
+
   await ffmpeg.run(...args);
+
   const output = ffmpeg.FS('readFile', 'output.mp4');
   ffmpeg.FS('unlink', 'input.mp4');
   ffmpeg.FS('unlink', 'output.mp4');
   return output;
 }
 
-// Handle file input selection
+/* ---------- File & Share ---------- */
 document.getElementById('fileInput').addEventListener('change', (ev) => {
   const files = ev.target.files;
   if (files && files.length > 0) {
@@ -432,29 +456,30 @@ document.getElementById('fileInput').addEventListener('change', (ev) => {
   }
 });
 
-// Share button
 shareBtn.addEventListener('click', async () => {
   if (!downloadLink.href) return;
   try {
     if (navigator.share) {
-      await navigator.share({
-        title: 'Compressed video',
-        url: downloadLink.href
-      });
+      await navigator.share({ title: 'Compressed video', url: downloadLink.href });
     } else {
       await navigator.clipboard.writeText(downloadLink.href);
-      alert('Link copied to clipboard!');
+      showProToast('Link copied to clipboard.');
     }
   } catch (err) {
     console.error(err);
   }
 });
 
-// Initialization
+/* ---------- Init ---------- */
 async function init() {
   await loadPresets();
   renderPresets();
   renderCustomBuilder();
+
+  // Click handler for "Learn more" (if visible on load)
+  const learn = document.getElementById('learnMorePro');
+  if (learn) learn.onclick = () => showProToast('Custom builder is available in Pro.');
+
   // Register service worker
   if ('serviceWorker' in navigator) {
     try {
