@@ -1,17 +1,17 @@
 [
   {
-    "id": "im_16mb",
-    "label": "Chat (≤16 MB)",
-    "hint": "Targets a max file size under 16 MB. Good for WhatsApp/Telegram.",
+    "id": "discord_10mb",
+    "label": "Discord (≤10 MB)",
+    "hint": "Fits Discord's small upload limit.",
     "category": "Size-capped",
     "mode": "size",
-    "sizeTargetMB": 16,
+    "sizeTargetMB": 10,
     "aspect": "keep",
     "fit": "contain",
-    "maxHeight": 720,
-    "fps": 30,
-    "audioKbps": 96,
-    "crf": 23
+    "maxHeight": 480,
+    "fps": 24,
+    "audioKbps": 64,
+    "crf": 24
   },
   {
     "id": "email_25mb",
@@ -166,21 +166,6 @@
     "fps": 60,
     "audioKbps": 128,
     "crf": 22
-  },
-
-  { 
-    "id": "discord_8mb",
-    "label": "Discord (≤8 MB)",
-    "hint": "Fits Discord's free 8 MB upload limit.",
-    "category": "Size-capped",
-    "mode": "size",
-    "sizeTargetMB": 8,
-    "aspect": "keep",
-    "fit": "contain",
-    "maxHeight": 480,
-    "fps": 24,
-    "audioKbps": 64,
-    "crf": 24
   },
   {
     "id": "9x16_720_30",

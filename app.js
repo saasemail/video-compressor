@@ -88,7 +88,7 @@ function groupRank(p) {
   if (id.startsWith('4x5_'))   return 1;  // Portrait
   if (id.startsWith('1x1_'))   return 2;  // Square
   if (id.startsWith('16x9_'))  return 3;  // Landscape
-  if (id === 'discord_8mb')    return 4;  // Discord special
+  if (id === 'discord_10mb' || id === 'discord_8mb') return 4;  // Discord special
   if (id.startsWith('im_'))    return 5;  // Chat size-capped
   if (id.startsWith('email_')) return 6;  // Email size-capped
   if (id === 'source_friendly')return 7;  // Utility
@@ -126,7 +126,7 @@ function renderPresets() {
   otherPresetsContainer.innerHTML = '';
 
   // Top 3 koje želimo gore (fiksan redosled)
-  const topIds = ['im_16mb', 'email_25mb', 'quick_720p'];
+  const topIds = ['discord_10mb', 'email_25mb', 'quick_720p'];
   const byId = new Map(presets.map(p => [p.id, p]));
   topIds.forEach(id => {
     const p = byId.get(id);
