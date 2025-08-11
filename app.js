@@ -47,7 +47,7 @@ function hideProToast() {
 window.showProToast = showProToast;
 window.hideProToast = hideProToast;
 
-/* ---------- Tiny tooltip for preset cards ---------- */
+/* ---------- Tiny tooltip for preset cards (hover) ---------- */
 const __tip = document.createElement('div');
 Object.assign(__tip.style, {
   position: 'fixed',
@@ -88,19 +88,16 @@ function groupRank(p) {
   if (id.startsWith('4x5_'))   return 1;  // Portrait
   if (id.startsWith('1x1_'))   return 2;  // Square
   if (id.startsWith('16x9_'))  return 3;  // Landscape
-  if (id === 'discord_10mb' || id === 'discord_8mb') return 4;  // Discord special
+  if (id === 'discord_10mb' || id === 'discord_8mb') return 4;  // Discord
   if (id.startsWith('im_'))    return 5;  // Chat size-capped
   if (id.startsWith('email_')) return 6;  // Email size-capped
   if (id === 'source_friendly')return 7;  // Utility
   return 8;
 }
 function scoreByResFps(p) {
-  // Pokušaj da izvučeš rez/fps iz ID-ja (npr. _1080_60, _720_30)
   const m = (p.id || '').match(/_(\d{3,4})(?:_(\d{2}))?$/);
   const res = m ? parseInt(m[1], 10) : (p.maxHeight || 0);
   const fps = m && m[2] ? parseInt(m[2], 10) : (p.fps || 0);
-  // veći skor = viši prioritet: veća rezolucija iznad manje;
-  // za fps preferiramo 30 ispred 60 unutar iste rezolucije (stabilnije za wasm)
   const fpsBoost = (fps === 30 ? 2 : fps === 60 ? 1 : 0);
   return res * 100 + fpsBoost;
 }
@@ -125,8 +122,8 @@ function renderPresets() {
   topPresetsContainer.innerHTML = '';
   otherPresetsContainer.innerHTML = '';
 
-  // Top 3 koje želimo gore (fiksan redosled)
-  const topIds = ['discord_10mb', 'email_25mb', 'quick_720p'];
+  // Top 3 FREE (fiksan redosled)
+  const topIds = ['discord_8mb', 'email_25mb', 'quick_720p'];
   const byId = new Map(presets.map(p => [p.id, p]));
   topIds.forEach(id => {
     const p = byId.get(id);
@@ -155,29 +152,12 @@ function createPresetCard(preset) {
   category.className = 'preset-category';
   category.textContent = preset.category;
 
-  // Info dugme (radi i na mobilnom)
-  const infoBtn = document.createElement('button');
-  infoBtn.className = 'info-btn';
-  infoBtn.type = 'button';
-  infoBtn.setAttribute('aria-label', 'Preset info');
-  infoBtn.innerHTML = 'i';
-  infoBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    showTip(preset.hint || 'Preset info', e.clientX || 20, e.clientY || 20);
-    setTimeout(hideTip, 2200);
-  });
-
-  const headerRight = document.createElement('div');
-  headerRight.style.display = 'flex';
-  headerRight.style.alignItems = 'center';
-  headerRight.style.gap = '8px';
-  headerRight.appendChild(category);
-  headerRight.appendChild(infoBtn);
-
+  // Header: title (left) — category (right)
   header.appendChild(title);
-  header.appendChild(headerRight);
+  header.appendChild(category);
   card.appendChild(header);
 
+  // Hint uvek ispod headera (bez "i" dugmeta)
   if (preset.hint) {
     const hintEl = document.createElement('div');
     hintEl.className = 'preset-hint';
@@ -191,10 +171,11 @@ function createPresetCard(preset) {
     const lock = document.createElement('div');
     lock.className = 'lock-icon';
     lock.innerHTML = '&#128274;';
-    headerRight.insertBefore(lock, infoBtn);
+    // stavi pored kategorije (desno)
+    header.appendChild(lock);
   }
 
-  // Hover tooltip (desktop)
+  // Hover tooltip (desktop) — dodatno uz hint
   if (preset.hint) {
     card.title = preset.hint;
     card.addEventListener('mouseenter', e => showTip(preset.hint, e.clientX, e.clientY));
@@ -403,6 +384,14 @@ async function startProcessing(preset) {
     return;
   }
 
+  // === FREE 720p CAP (efektivni preset) ===
+  const plan = getPlan();
+  const p = { ...preset }; // clone to avoid mutating original
+  if (plan.name === 'free') {
+    const cap = (plan.rules && plan.rules.max_height) ? plan.rules.max_height : 720;
+    if (!p.maxHeight || p.maxHeight > cap) p.maxHeight = cap;
+  }
+
   // Show progress early
   progressSection.classList.remove('hidden');
   progressBar.style.width = '0%';
@@ -411,13 +400,11 @@ async function startProcessing(preset) {
   let durationSec = null;
   try {
     durationSec = await getVideoDuration(selectedFile);
-  } catch (e) {
-    // ignore
-  }
+  } catch (e) { /* ignore */ }
 
   // If size-mode, show rough estimate immediately
-  if (preset.mode === 'size' && durationSec) {
-    const est = estimateSizeRangeMB(preset, durationSec);
+  if (p.mode === 'size' && durationSec) {
+    const est = estimateSizeRangeMB(p, durationSec);
     if (est) {
       progressLabel.textContent = `Estimate: ≈${formatMB(est.low)}–${formatMB(est.high)} · Preparing…`;
     } else {
@@ -429,9 +416,7 @@ async function startProcessing(preset) {
 
   // Optional free delay
   const delay = getDelay();
-  if (delay > 0) {
-    await new Promise(res => setTimeout(res, delay));
-  }
+  if (delay > 0) await new Promise(res => setTimeout(res, delay));
 
   progressLabel.textContent = 'Loading encoder...';
   await ensureFFmpegLoaded();
@@ -439,20 +424,19 @@ async function startProcessing(preset) {
   progressLabel.textContent = 'Reading video...';
   const inputData = await readFileAsArrayBuffer(selectedFile);
 
-  // If nismo uspeli ranije, pokušaj opet da dođeš do duration-a
   if (!durationSec) {
     try { durationSec = await getVideoDuration(selectedFile); } catch (e) {}
   }
 
   progressLabel.textContent = 'Compressing...';
-  const result = await compressVideo(preset, inputData, durationSec || 0);
+  const result = await compressVideo(p, inputData, durationSec || 0);
 
   // Present result
   const blob = new Blob([result.buffer], { type: 'video/mp4' });
   const url = URL.createObjectURL(blob);
   resultVideo.src = url;
   downloadLink.href = url;
-  downloadLink.download = generateDownloadName(selectedFile.name, preset);
+  downloadLink.download = generateDownloadName(selectedFile.name, p);
   resultSection.classList.remove('hidden');
   progressSection.classList.add('hidden');
 
@@ -524,18 +508,15 @@ function buildFilter(preset) {
 
   if (!aspect || aspect === 'keep') {
     if (maxHeight) {
-      // scale down preserving aspect; -2 keeps width divisible by 2
       filters.push(`scale=-2:${maxHeight}`);
     }
   } else if (fit === 'cover') {
     const w = targetWidth;
     const h = targetHeight;
-    // scale so the smaller dimension fills, then crop center
     filters.push(`scale=iw*max(${w}/iw,${h}/ih):ih*max(${w}/iw,${h}/ih),crop=${w}:${h}`);
   } else if (fit === 'contain') {
     const w = targetWidth;
     const h = targetHeight;
-    // scale to fit inside, then pad to requested frame
     filters.push(
       `scale=iw*min(${w}/iw,${h}/ih):ih*min(${w}/iw,${h}/ih),` +
       `pad=${w}:${h}:((${w}-iw*min(${w}/iw,${h}/ih))/2):((${h}-ih*min(${w}/iw,${h}/ih))/2)`
@@ -546,20 +527,16 @@ function buildFilter(preset) {
 }
 
 async function compressVideo(preset, inputData, durationSec) {
-  // Write input
   ffmpeg.FS('writeFile', 'input.mp4', inputData);
 
   const argsBase = ['-i', 'input.mp4'];
 
-  // Frame rate
   if (preset.fps) {
     argsBase.push('-r', String(preset.fps));
   }
 
-  // Build filter chain (scale/crop/pad + watermark later)
   let filterChain = buildFilter(preset);
 
-  // Mode-specific encoding
   if (preset.mode === 'size') {
     const targetBytes = (preset.sizeTargetMB || 25) * 1024 * 1024;
     const audioKbps = (preset.audioKbps || 128);
@@ -573,12 +550,10 @@ async function compressVideo(preset, inputData, durationSec) {
     argsBase.push('-crf', String(preset.crf || 23));
   }
 
-  // Audio
   if (preset.audioKbps) argsBase.push('-b:a', `${preset.audioKbps}k`);
   argsBase.push('-c:a', 'aac');
   argsBase.push('-movflags', 'faststart');
 
-  // Watermark (safe fallback using drawbox – radi bez fontova)
   if (shouldWatermark()) {
     const wm = `drawbox=x=10:y=H-50:w=180:h=36:color=white@0.14:t=fill`;
     filterChain = filterChain ? `${filterChain},${wm}` : wm;
