@@ -88,7 +88,7 @@ function groupRank(p) {
   if (id.startsWith('4x5_'))   return 1;  // Portrait
   if (id.startsWith('1x1_'))   return 2;  // Square
   if (id.startsWith('16x9_'))  return 3;  // Landscape
-  if (id === 'discord_10mb' || id === 'discord_8mb') return 4;  // Discord
+  if (id === 'discord_10mb' || id === 'discord_8mb') return 4;  // Discord (8MB/10MB)
   if (id.startsWith('im_'))    return 5;  // Chat size-capped
   if (id.startsWith('email_')) return 6;  // Email size-capped
   if (id === 'source_friendly')return 7;  // Utility
@@ -122,8 +122,8 @@ function renderPresets() {
   topPresetsContainer.innerHTML = '';
   otherPresetsContainer.innerHTML = '';
 
-  // Top 3 FREE (fiksan redosled)
-  const topIds = ['discord_8mb', 'email_25mb', 'quick_720p'];
+  // Top 3 FREE (fiksan redosled) — Chat 16MB, Email 25MB, Quick Share 720p
+  const topIds = ['im_16mb', 'email_25mb', 'quick_720p'];
   const byId = new Map(presets.map(p => [p.id, p]));
   topIds.forEach(id => {
     const p = byId.get(id);
@@ -171,7 +171,6 @@ function createPresetCard(preset) {
     const lock = document.createElement('div');
     lock.className = 'lock-icon';
     lock.innerHTML = '&#128274;';
-    // stavi pored kategorije (desno)
     header.appendChild(lock);
   }
 

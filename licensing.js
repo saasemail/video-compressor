@@ -5,22 +5,22 @@ const FREE_RULES = {
   daily_renders: 1,
   max_input_mb: 150,
   max_height: 720,
-  // FREE preset triada: Discord (≤8 MB), Email (≤25 MB), Quick Share 720p
-  presets_enabled: ["discord_8mb", "email_25mb", "quick_720p"],
-  // NOTE: This array is informational only; not used by the logic below.
+  // >>> FREE preset whitelist (samo ova tri su otključana)
+  presets_enabled: ["im_16mb", "email_25mb", "quick_720p"],
+  // Ostatak je implicitno zaključan (presets_locked ovde je samo informativan)
   presets_locked: [
     "email_10mb",
-    "im_16mb",
     "im_25mb",
     "im_50mb",
+    "discord_8mb",
+    "9x16_720_30",
     "9x16_1080_30",
     "9x16_1080_60",
+    "16x9_720_30",
     "16x9_1080_30",
     "1x1_1080_30",
     "4x5_1080_30",
     "source_friendly",
-    "9x16_720_30",
-    "16x9_720_30",
     "custom"
   ],
   watermark: true,
@@ -82,7 +82,7 @@ export function canRender(fileSizeMB) {
   const { name, rules } = getPlan();
   if (fileSizeMB > rules.max_input_mb) {
     return { allowed: false, reason: `Input video exceeds ${rules.max_input_mb} MB limit for ${name} plan.` };
-  }
+    }
   if (name === "free" && rules.daily_renders !== null) {
     if (getRenderCount() >= rules.daily_renders) {
       return { allowed: false, reason: `Daily render limit of ${rules.daily_renders} reached.` };

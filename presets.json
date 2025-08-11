@@ -1,11 +1,11 @@
 [
   {
-    "id": "discord_10mb",
-    "label": "Discord (≤10 MB)",
+    "id": "discord_8mb",
+    "label": "Discord (≤8 MB)",
     "hint": "Fits Discord's small upload limit.",
     "category": "Size-capped",
     "mode": "size",
-    "sizeTargetMB": 10,
+    "sizeTargetMB": 8,
     "aspect": "keep",
     "fit": "contain",
     "maxHeight": 480,
