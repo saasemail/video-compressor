@@ -139,7 +139,8 @@ h1, h2, h3 {
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;   /* ranije: space-between */
+  gap: .4rem;                    /* razmak između headera i hinta */
   transition: transform 0.1s ease;
 }
 

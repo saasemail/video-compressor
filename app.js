@@ -85,6 +85,7 @@ function renderPresets() {
   topPresetsContainer.innerHTML = '';
   otherPresetsContainer.innerHTML = '';
 
+  // Top 3 koje želimo gore
   const topIds = ['im_16mb', 'email_25mb', 'quick_720p'];
   const top = presets.filter(p => topIds.includes(p.id));
   const others = presets.filter(p => !topIds.includes(p.id));
@@ -108,7 +109,7 @@ function createPresetCard(preset) {
   category.className = 'preset-category';
   category.textContent = preset.category;
 
-  // Info dugme (uvijek dostupno, i za locked)
+  // Info dugme (radi i na mobilnom)
   const infoBtn = document.createElement('button');
   infoBtn.className = 'info-btn';
   infoBtn.type = 'button';
@@ -116,7 +117,6 @@ function createPresetCard(preset) {
   infoBtn.innerHTML = 'i';
   infoBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    // prikaz hint-a i na mobilnom (kratak popup pored dodira)
     showTip(preset.hint || 'Preset info', e.clientX || 20, e.clientY || 20);
     setTimeout(hideTip, 2200);
   });
@@ -132,7 +132,6 @@ function createPresetCard(preset) {
   header.appendChild(headerRight);
   card.appendChild(header);
 
-  // Vidljiv, kratak opis (hint) ispod header-a
   if (preset.hint) {
     const hintEl = document.createElement('div');
     hintEl.className = 'preset-hint';
@@ -151,7 +150,7 @@ function createPresetCard(preset) {
 
   // Hover tooltip (desktop)
   if (preset.hint) {
-    card.title = preset.hint; // fallback native
+    card.title = preset.hint;
     card.addEventListener('mouseenter', e => showTip(preset.hint, e.clientX, e.clientY));
     card.addEventListener('mousemove',  e => showTip(preset.hint, e.clientX, e.clientY));
     card.addEventListener('mouseleave', hideTip);
@@ -329,6 +328,26 @@ function renderCustomBuilder() {
   customPanel.appendChild(fragment);
 }
 
+/* ---------- Estimate helpers ---------- */
+function formatMB(mb) {
+  if (mb < 1) return `${Math.round(mb * 1024)} KB`;
+  return `${Math.round(mb * 10) / 10} MB`;
+}
+
+/** Rough size estimate for size-mode presets. Returns {low, mid, high} in MB. */
+function estimateSizeRangeMB(preset, durationSec) {
+  if (preset.mode !== 'size' || !durationSec || !preset.sizeTargetMB) return null;
+  const targetBytes = preset.sizeTargetMB * 1024 * 1024;
+  const audioKbps = preset.audioKbps || 128;
+  const audioBits = audioKbps * 1000 * durationSec;
+  const videoBits = Math.max(300 * 1000 * durationSec, targetBytes * 8 - audioBits);
+  const totalBits = videoBits + audioBits;
+  const midMB = totalBits / 8 / 1024 / 1024;
+  const lowMB = midMB * 0.9;
+  const highMB = midMB * 1.1;
+  return { low: lowMB, mid: midMB, high: highMB };
+}
+
 /* ---------- Processing ---------- */
 async function startProcessing(preset) {
   const fileSizeMB = selectedFile.size / (1024 * 1024);
@@ -338,26 +357,51 @@ async function startProcessing(preset) {
     return;
   }
 
+  // Show progress early
+  progressSection.classList.remove('hidden');
+  progressBar.style.width = '0%';
+
+  // Read duration quickly (no ffmpeg) to estimate
+  let durationSec = null;
+  try {
+    durationSec = await getVideoDuration(selectedFile);
+  } catch (e) {
+    // ignore
+  }
+
+  // If size-mode, show rough estimate immediately
+  if (preset.mode === 'size' && durationSec) {
+    const est = estimateSizeRangeMB(preset, durationSec);
+    if (est) {
+      progressLabel.textContent = `Estimate: ≈${formatMB(est.low)}–${formatMB(est.high)} · Preparing…`;
+    } else {
+      progressLabel.textContent = 'Preparing...';
+    }
+  } else {
+    progressLabel.textContent = 'Preparing...';
+  }
+
+  // Optional free delay
   const delay = getDelay();
   if (delay > 0) {
-    progressSection.classList.remove('hidden');
-    progressLabel.textContent = 'Preparing...';
     await new Promise(res => setTimeout(res, delay));
   }
 
-  progressSection.classList.remove('hidden');
-  progressBar.style.width = '0%';
   progressLabel.textContent = 'Loading encoder...';
   await ensureFFmpegLoaded();
 
   progressLabel.textContent = 'Reading video...';
   const inputData = await readFileAsArrayBuffer(selectedFile);
 
-  const durationSec = await getVideoDuration(selectedFile);
+  // If nismo uspeli ranije, pokušaj opet da dođeš do duration-a
+  if (!durationSec) {
+    try { durationSec = await getVideoDuration(selectedFile); } catch (e) {}
+  }
 
   progressLabel.textContent = 'Compressing...';
-  const result = await compressVideo(preset, inputData, durationSec);
+  const result = await compressVideo(preset, inputData, durationSec || 0);
 
+  // Present result
   const blob = new Blob([result.buffer], { type: 'video/mp4' });
   const url = URL.createObjectURL(blob);
   resultVideo.src = url;
@@ -366,6 +410,7 @@ async function startProcessing(preset) {
   resultSection.classList.remove('hidden');
   progressSection.classList.add('hidden');
 
+  // Count + nags
   incrementRenderCount();
   const { name } = getPlan();
   nagMessage.textContent = (name === 'free')
@@ -433,15 +478,18 @@ function buildFilter(preset) {
 
   if (!aspect || aspect === 'keep') {
     if (maxHeight) {
+      // scale down preserving aspect; -2 keeps width divisible by 2
       filters.push(`scale=-2:${maxHeight}`);
     }
   } else if (fit === 'cover') {
     const w = targetWidth;
     const h = targetHeight;
+    // scale so the smaller dimension fills, then crop center
     filters.push(`scale=iw*max(${w}/iw,${h}/ih):ih*max(${w}/iw,${h}/ih),crop=${w}:${h}`);
   } else if (fit === 'contain') {
     const w = targetWidth;
     const h = targetHeight;
+    // scale to fit inside, then pad to requested frame
     filters.push(
       `scale=iw*min(${w}/iw,${h}/ih):ih*min(${w}/iw,${h}/ih),` +
       `pad=${w}:${h}:((${w}-iw*min(${w}/iw,${h}/ih))/2):((${h}-ih*min(${w}/iw,${h}/ih))/2)`
@@ -452,22 +500,26 @@ function buildFilter(preset) {
 }
 
 async function compressVideo(preset, inputData, durationSec) {
+  // Write input
   ffmpeg.FS('writeFile', 'input.mp4', inputData);
 
   const argsBase = ['-i', 'input.mp4'];
 
+  // Frame rate
   if (preset.fps) {
     argsBase.push('-r', String(preset.fps));
   }
 
+  // Build filter chain (scale/crop/pad + watermark later)
   let filterChain = buildFilter(preset);
 
+  // Mode-specific encoding
   if (preset.mode === 'size') {
     const targetBytes = (preset.sizeTargetMB || 25) * 1024 * 1024;
     const audioKbps = (preset.audioKbps || 128);
-    const audioBits = audioKbps * 1000 * durationSec;
-    const videoBits = Math.max(300 * 1000 * durationSec, targetBytes * 8 - audioBits);
-    const videoKbps = Math.floor(videoBits / durationSec / 1000);
+    const audioBits = audioKbps * 1000 * (durationSec || 0);
+    const videoBits = Math.max(300 * 1000 * (durationSec || 0), targetBytes * 8 - audioBits);
+    const videoKbps = Math.floor(videoBits / Math.max(1, durationSec) / 1000);
 
     argsBase.push('-b:v', `${videoKbps}k`, '-maxrate', `${videoKbps}k`, '-bufsize', `${videoKbps * 2}k`);
     argsBase.push('-crf', String(preset.crf || 23));
@@ -475,10 +527,12 @@ async function compressVideo(preset, inputData, durationSec) {
     argsBase.push('-crf', String(preset.crf || 23));
   }
 
+  // Audio
   if (preset.audioKbps) argsBase.push('-b:a', `${preset.audioKbps}k`);
   argsBase.push('-c:a', 'aac');
   argsBase.push('-movflags', 'faststart');
 
+  // Watermark (safe fallback using drawbox – radi bez fontova)
   if (shouldWatermark()) {
     const wm = `drawbox=x=10:y=H-50:w=180:h=36:color=white@0.14:t=fill`;
     filterChain = filterChain ? `${filterChain},${wm}` : wm;
