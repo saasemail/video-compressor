@@ -1,7 +1,8 @@
 [
   {
     "id": "im_16mb",
-    "label": "IM ≤16 MB",
+    "label": "Chat (≤16 MB)",
+    "hint": "Targets a max file size under 16 MB. Good for WhatsApp/Telegram.",
     "category": "Size-capped",
     "mode": "size",
     "sizeTargetMB": 16,
@@ -14,7 +15,8 @@
   },
   {
     "id": "email_10mb",
-    "label": "Email ≤10 MB",
+    "label": "Email (≤10 MB)",
+    "hint": "Very small attachment. Use when strict mail limits apply.",
     "category": "Size-capped",
     "mode": "size",
     "sizeTargetMB": 10,
@@ -27,7 +29,8 @@
   },
   {
     "id": "email_25mb",
-    "label": "Email ≤25 MB",
+    "label": "Email (≤25 MB)",
+    "hint": "Common email attachment limit (~25 MB).",
     "category": "Size-capped",
     "mode": "size",
     "sizeTargetMB": 25,
@@ -40,7 +43,8 @@
   },
   {
     "id": "im_25mb",
-    "label": "IM ≤25 MB",
+    "label": "Chat (≤25 MB)",
+    "hint": "Bigger than 16 MB but still chat-friendly.",
     "category": "Size-capped",
     "mode": "size",
     "sizeTargetMB": 25,
@@ -53,7 +57,8 @@
   },
   {
     "id": "im_50mb",
-    "label": "IM ≤50 MB",
+    "label": "Chat (≤50 MB)",
+    "hint": "For longer clips while keeping size reasonable.",
     "category": "Size-capped",
     "mode": "size",
     "sizeTargetMB": 50,
@@ -66,7 +71,8 @@
   },
   {
     "id": "9x16_1080_30",
-    "label": "9:16 1080p @30",
+    "label": "Vertical 9:16 • 1080p @30",
+    "hint": "Reels/TikTok/Stories. Crops to fill 9:16.",
     "category": "Aspect/quality",
     "mode": "quality",
     "sizeTargetMB": 50,
@@ -79,7 +85,8 @@
   },
   {
     "id": "9x16_1080_60",
-    "label": "9:16 1080p @60",
+    "label": "Vertical 9:16 • 1080p @60",
+    "hint": "Smooth 60 fps vertical video for fast motion.",
     "category": "Aspect/quality",
     "mode": "quality",
     "sizeTargetMB": 75,
@@ -92,7 +99,8 @@
   },
   {
     "id": "16x9_1080_30",
-    "label": "16:9 1080p @30",
+    "label": "Landscape 16:9 • 1080p @30",
+    "hint": "YouTube standard landscape format.",
     "category": "Aspect/quality",
     "mode": "quality",
     "sizeTargetMB": 75,
@@ -105,7 +113,8 @@
   },
   {
     "id": "1x1_1080_30",
-    "label": "1:1 1080×1080 @30",
+    "label": "Square 1:1 • 1080×1080 @30",
+    "hint": "Square feed posts. Keeps center in frame.",
     "category": "Aspect/quality",
     "mode": "quality",
     "sizeTargetMB": 50,
@@ -118,7 +127,8 @@
   },
   {
     "id": "4x5_1080_30",
-    "label": "4:5 1080×1350 @30",
+    "label": "Portrait 4:5 • 1080×1350 @30",
+    "hint": "Tall portrait feed (IG).",
     "category": "Aspect/quality",
     "mode": "quality",
     "sizeTargetMB": 60,
@@ -131,7 +141,8 @@
   },
   {
     "id": "quick_720p",
-    "label": "Quick Share 720p",
+    "label": "Quick Share • 720p",
+    "hint": "Fast, smaller file with decent quality.",
     "category": "Utility",
     "mode": "quality",
     "sizeTargetMB": 30,
@@ -144,7 +155,8 @@
   },
   {
     "id": "source_friendly",
-    "label": "Source Friendly",
+    "label": "Keep Source • CRF 22",
+    "hint": "Keeps aspect & fps; gentle compression (quality-focused).",
     "category": "Utility",
     "mode": "quality",
     "sizeTargetMB": 200,

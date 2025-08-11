@@ -48,6 +48,34 @@ function hideProToast() {
 window.showProToast = showProToast;
 window.hideProToast = hideProToast;
 
+/* ---------- Tiny tooltip for preset cards ---------- */
+const __tip = document.createElement('div');
+Object.assign(__tip.style, {
+  position: 'fixed',
+  zIndex: 10000,
+  display: 'none',
+  maxWidth: '280px',
+  padding: '8px 10px',
+  borderRadius: '10px',
+  background: 'rgba(18,23,35,0.95)',
+  color: '#e8edf5',
+  border: '1px solid rgba(255,255,255,0.1)',
+  fontSize: '12.5px',
+  lineHeight: '1.35',
+  pointerEvents: 'none',
+  boxShadow: '0 8px 24px rgba(0,0,0,0.35)'
+});
+document.body.appendChild(__tip);
+
+function showTip(text, x, y) {
+  __tip.textContent = text;
+  __tip.style.display = 'block';
+  const offset = 14;
+  __tip.style.left = Math.min(x + offset, window.innerWidth - 300) + 'px';
+  __tip.style.top  = Math.min(y + offset, window.innerHeight - 60) + 'px';
+}
+function hideTip(){ __tip.style.display = 'none'; }
+
 /* ---------- Presets ---------- */
 async function loadPresets() {
   const resp = await fetch('./presets.json');
@@ -92,6 +120,16 @@ function createPresetCard(preset) {
     lock.className = 'lock-icon';
     lock.innerHTML = '&#128274;';
     header.appendChild(lock);
+  }
+
+  // === Tooltip (hint) wiring ===
+  if (preset.hint) {
+    // native title as fallback
+    card.title = preset.hint;
+    // custom floating tooltip
+    card.addEventListener('mouseenter', e => showTip(preset.hint, e.clientX, e.clientY));
+    card.addEventListener('mousemove',  e => showTip(preset.hint, e.clientX, e.clientY));
+    card.addEventListener('mouseleave', hideTip);
   }
 
   card.addEventListener('click', async () => {
