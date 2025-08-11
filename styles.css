@@ -337,6 +337,37 @@ h1, h2, h3 {
   cursor:pointer
 }
 
+/* === DODACI: vidljiv hint i "i" dugme na karticama === */
+.preset-hint{
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-top: .35rem;
+}
+
+.info-btn{
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  width: 26px; height: 26px;
+  border-radius: 999px;
+  line-height: 24px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  transition: transform 0.1s ease;
+}
+.info-btn:hover{ transform: translateY(-1px); }
+
+/* === DODATAK: tip-linija ispod naslova sekcije === */
+.section-tip{
+  margin: -0.5rem 0 1rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-align: left;
+}
+
 /* Responsive adjustments */
 @media (max-width: 600px) {
   .custom-panel { grid-template-columns: 1fr; }

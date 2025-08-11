@@ -44,7 +44,6 @@ function hideProToast() {
   if (t) t.classList.add('hidden');
   clearTimeout(window.__proToastTimer);
 }
-// expose for inline handler in index.html (module scope isn't global)
 window.showProToast = showProToast;
 window.hideProToast = hideProToast;
 
@@ -109,9 +108,37 @@ function createPresetCard(preset) {
   category.className = 'preset-category';
   category.textContent = preset.category;
 
+  // Info dugme (uvijek dostupno, i za locked)
+  const infoBtn = document.createElement('button');
+  infoBtn.className = 'info-btn';
+  infoBtn.type = 'button';
+  infoBtn.setAttribute('aria-label', 'Preset info');
+  infoBtn.innerHTML = 'i';
+  infoBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    // prikaz hint-a i na mobilnom (kratak popup pored dodira)
+    showTip(preset.hint || 'Preset info', e.clientX || 20, e.clientY || 20);
+    setTimeout(hideTip, 2200);
+  });
+
+  const headerRight = document.createElement('div');
+  headerRight.style.display = 'flex';
+  headerRight.style.alignItems = 'center';
+  headerRight.style.gap = '8px';
+  headerRight.appendChild(category);
+  headerRight.appendChild(infoBtn);
+
   header.appendChild(title);
-  header.appendChild(category);
+  header.appendChild(headerRight);
   card.appendChild(header);
+
+  // Vidljiv, kratak opis (hint) ispod header-a
+  if (preset.hint) {
+    const hintEl = document.createElement('div');
+    hintEl.className = 'preset-hint';
+    hintEl.textContent = preset.hint;
+    card.appendChild(hintEl);
+  }
 
   const locked = isPresetLocked(preset.id);
   if (locked) {
@@ -119,14 +146,12 @@ function createPresetCard(preset) {
     const lock = document.createElement('div');
     lock.className = 'lock-icon';
     lock.innerHTML = '&#128274;';
-    header.appendChild(lock);
+    headerRight.insertBefore(lock, infoBtn);
   }
 
-  // === Tooltip (hint) wiring ===
+  // Hover tooltip (desktop)
   if (preset.hint) {
-    // native title as fallback
-    card.title = preset.hint;
-    // custom floating tooltip
+    card.title = preset.hint; // fallback native
     card.addEventListener('mouseenter', e => showTip(preset.hint, e.clientX, e.clientY));
     card.addEventListener('mousemove',  e => showTip(preset.hint, e.clientX, e.clientY));
     card.addEventListener('mouseleave', hideTip);
@@ -152,7 +177,6 @@ function renderCustomBuilder() {
   if (!isCustomEnabled()) {
     customLock.classList.remove('hidden');
     customPanel.innerHTML = '';
-    // wire "Learn more"
     const learn = document.getElementById('learnMorePro');
     if (learn) learn.onclick = () => showProToast('Custom builder is available in Pro.');
     return;
@@ -314,7 +338,6 @@ async function startProcessing(preset) {
     return;
   }
 
-  // Optional free delay
   const delay = getDelay();
   if (delay > 0) {
     progressSection.classList.remove('hidden');
@@ -330,13 +353,11 @@ async function startProcessing(preset) {
   progressLabel.textContent = 'Reading video...';
   const inputData = await readFileAsArrayBuffer(selectedFile);
 
-  // Determine duration
   const durationSec = await getVideoDuration(selectedFile);
 
   progressLabel.textContent = 'Compressing...';
   const result = await compressVideo(preset, inputData, durationSec);
 
-  // Present result
   const blob = new Blob([result.buffer], { type: 'video/mp4' });
   const url = URL.createObjectURL(blob);
   resultVideo.src = url;
@@ -345,7 +366,6 @@ async function startProcessing(preset) {
   resultSection.classList.remove('hidden');
   progressSection.classList.add('hidden');
 
-  // Count + nags
   incrementRenderCount();
   const { name } = getPlan();
   nagMessage.textContent = (name === 'free')
@@ -413,18 +433,15 @@ function buildFilter(preset) {
 
   if (!aspect || aspect === 'keep') {
     if (maxHeight) {
-      // scale down preserving aspect; -2 keeps width divisible by 2
       filters.push(`scale=-2:${maxHeight}`);
     }
   } else if (fit === 'cover') {
     const w = targetWidth;
     const h = targetHeight;
-    // scale so the smaller dimension fills, then crop center
     filters.push(`scale=iw*max(${w}/iw,${h}/ih):ih*max(${w}/iw,${h}/ih),crop=${w}:${h}`);
   } else if (fit === 'contain') {
     const w = targetWidth;
     const h = targetHeight;
-    // scale to fit inside, then pad to requested frame
     filters.push(
       `scale=iw*min(${w}/iw,${h}/ih):ih*min(${w}/iw,${h}/ih),` +
       `pad=${w}:${h}:((${w}-iw*min(${w}/iw,${h}/ih))/2):((${h}-ih*min(${w}/iw,${h}/ih))/2)`
@@ -435,20 +452,16 @@ function buildFilter(preset) {
 }
 
 async function compressVideo(preset, inputData, durationSec) {
-  // Write input
   ffmpeg.FS('writeFile', 'input.mp4', inputData);
 
   const argsBase = ['-i', 'input.mp4'];
 
-  // Frame rate
   if (preset.fps) {
     argsBase.push('-r', String(preset.fps));
   }
 
-  // Build filter chain (scale/crop/pad + watermark later)
   let filterChain = buildFilter(preset);
 
-  // Mode-specific encoding
   if (preset.mode === 'size') {
     const targetBytes = (preset.sizeTargetMB || 25) * 1024 * 1024;
     const audioKbps = (preset.audioKbps || 128);
@@ -462,12 +475,10 @@ async function compressVideo(preset, inputData, durationSec) {
     argsBase.push('-crf', String(preset.crf || 23));
   }
 
-  // Audio
   if (preset.audioKbps) argsBase.push('-b:a', `${preset.audioKbps}k`);
   argsBase.push('-c:a', 'aac');
   argsBase.push('-movflags', 'faststart');
 
-  // Watermark (safe fallback using drawbox – radi bez fontova)
   if (shouldWatermark()) {
     const wm = `drawbox=x=10:y=H-50:w=180:h=36:color=white@0.14:t=fill`;
     filterChain = filterChain ? `${filterChain},${wm}` : wm;
@@ -514,11 +525,9 @@ async function init() {
   renderPresets();
   renderCustomBuilder();
 
-  // Click handler for "Learn more" (if visible on load)
   const learn = document.getElementById('learnMorePro');
   if (learn) learn.onclick = () => showProToast('Custom builder is available in Pro.');
 
-  // Register service worker
   if ('serviceWorker' in navigator) {
     try {
       await navigator.serviceWorker.register('./sw.js');
