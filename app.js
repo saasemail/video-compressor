@@ -85,7 +85,7 @@ function renderPresets() {
   topPresetsContainer.innerHTML = '';
   otherPresetsContainer.innerHTML = '';
 
-  const topIds = ['im_16mb', 'email_25mb', '9x16_1080_30'];
+  const topIds = ['im_16mb', 'email_25mb', 'quick_720p'];
   const top = presets.filter(p => topIds.includes(p.id));
   const others = presets.filter(p => !topIds.includes(p.id));
 
