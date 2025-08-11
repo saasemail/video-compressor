@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Video Compressor Presets</title>
+    <link rel="manifest" href="./manifest.json" />
+    <link rel="stylesheet" href="./styles.css" />
+    <!-- Preconnect for Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Sora:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <meta name="theme-color" content="#0b0e13" />
+  </head>
+  <body>
+    <header class="hero">
+      <h1 class="hero-title">
+        Video Compressor
+        <span class="underline">Presets</span>
+      </h1>
+      <p class="hero-subtitle">
+        Compress &amp; resize videos instantly. Privacy‑first. In your browser.
+      </p>
+      <div class="hero-actions">
+        <input type="file" id="fileInput" accept="video/*" hidden />
+        <label for="fileInput" class="btn btn-primary" id="chooseFileBtn">
+          Choose video
+        </label>
+        <span class="hint">Drag & drop or choose a file</span>
+      </div>
+    </header>
+
+    <main id="mainContent">
+      <section id="presetSection" class="presets-section">
+        <h2 class="section-title">Choose a preset</h2>
+        <div id="topPresets" class="preset-grid top-presets"></div>
+        <div id="otherPresets" class="preset-grid"></div>
+      </section>
+
+      <section id="customSection" class="custom-section">
+        <h2 class="section-title">Custom builder</h2>
+        <div id="customPanel" class="custom-panel"></div>
+        <div id="customLock" class="lock-overlay hidden">
+          <p>This feature is available in Pro.</p>
+        </div>
+      </section>
+
+      <section id="progressSection" class="progress-section hidden">
+        <div class="progress-bar-container" aria-hidden="false">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <p id="progressLabel" class="progress-label" aria-live="polite"></p>
+      </section>
+
+      <section id="resultSection" class="result-section hidden">
+        <h2 class="section-title">Result</h2>
+        <video id="resultVideo" controls class="result-video"></video>
+        <div class="result-actions">
+          <a id="downloadLink" class="btn btn-secondary" download>Download</a>
+          <button id="shareBtn" class="btn btn-secondary">Share</button>
+        </div>
+        <p id="nagMessage" class="nag-message"></p>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p class="footnote">
+        Privacy‑first · Works in your browser · PWA
+      </p>
+    </footer>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
