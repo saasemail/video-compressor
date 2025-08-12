@@ -11,21 +11,24 @@ import {
   getDelay
 } from './licensing.js';
 
-const topPresetsContainer = document.getElementById('topPresets');
+const topPresetsContainer   = document.getElementById('topPresets');
 const otherPresetsContainer = document.getElementById('otherPresets');
-const customPanel = document.getElementById('customPanel');
-const customLock = document.getElementById('customLock');
-const progressSection = document.getElementById('progressSection');
-const progressBar = document.getElementById('progressBar');
-const progressLabel = document.getElementById('progressLabel');
-const resultSection = document.getElementById('resultSection');
-const resultVideo = document.getElementById('resultVideo');
-const downloadLink = document.getElementById('downloadLink');
-const shareBtn = document.getElementById('shareBtn');
-const nagMessage = document.getElementById('nagMessage');
+const customPanel           = document.getElementById('customPanel');
+const customLock            = document.getElementById('customLock');
+const progressSection       = document.getElementById('progressSection');
+const progressBar           = document.getElementById('progressBar');
+const progressLabel         = document.getElementById('progressLabel');
+const resultSection         = document.getElementById('resultSection');
+const resultVideo           = document.getElementById('resultVideo');
+const downloadLink          = document.getElementById('downloadLink');
+const shareBtn              = document.getElementById('shareBtn');
+const nagMessage            = document.getElementById('nagMessage');
+const chooseFileBtn         = document.getElementById('chooseFileBtn');
+const fileInputEl           = document.getElementById('fileInput');
 
 let presets = [];
 let selectedFile = null;
+let selectedPresetId = null; // NEW: currently selected preset
 let ffmpeg = null;
 let ffmpegReady = false;
 
@@ -140,6 +143,7 @@ function renderPresets() {
 function createPresetCard(preset) {
   const card = document.createElement('div');
   card.className = 'preset-card';
+  card.dataset.presetId = preset.id;
 
   const header = document.createElement('div');
   header.className = 'preset-header';
@@ -157,7 +161,7 @@ function createPresetCard(preset) {
   header.appendChild(category);
   card.appendChild(header);
 
-  // Hint uvek ispod headera (bez "i" dugmeta)
+  // Hint uvek ispod headera
   if (preset.hint) {
     const hintEl = document.createElement('div');
     hintEl.className = 'preset-hint';
@@ -174,7 +178,7 @@ function createPresetCard(preset) {
     header.appendChild(lock);
   }
 
-  // Hover tooltip (desktop) — dodatno uz hint
+  // Hover tooltip (desktop)
   if (preset.hint) {
     card.title = preset.hint;
     card.addEventListener('mouseenter', e => showTip(preset.hint, e.clientX, e.clientY));
@@ -182,16 +186,16 @@ function createPresetCard(preset) {
     card.addEventListener('mouseleave', hideTip);
   }
 
-  card.addEventListener('click', async () => {
+  // NEW: klik SAMO selektuje preset (ne otvara upload, ne startuje obradu)
+  card.addEventListener('click', () => {
     if (locked) {
       showProToast('This preset is available in Pro.');
       return;
     }
-    if (!selectedFile) {
-      document.getElementById('fileInput').click();
-      return;
-    }
-    await startProcessing(preset);
+    selectedPresetId = preset.id;
+    document.querySelectorAll('.preset-card.selected').forEach(el => el.classList.remove('selected'));
+    card.classList.add('selected');
+    hideProToast();
   });
 
   return card;
@@ -321,7 +325,8 @@ function renderCustomBuilder() {
   btn.textContent = 'Compress';
   btn.addEventListener('click', async () => {
     if (!selectedFile) {
-      document.getElementById('fileInput').click();
+      // Dozvoli programatsko otvaranje bez izabranog preseta (custom flow)
+      fileInputEl.click();
       return;
     }
     const customPreset = {
@@ -346,8 +351,8 @@ function renderCustomBuilder() {
     const isSize = modeSelect.value === 'size';
     sizeLabel.style.display = isSize ? 'block' : 'none';
     sizeInput.style.display = isSize ? 'block' : 'none';
-    crfLabel.style.display = isSize ? 'none' : 'block';
-    crfInput.style.display = isSize ? 'none' : 'block';
+    crfLabel.style.display  = isSize ? 'none'  : 'block';
+    crfInput.style.display  = isSize ? 'none'  : 'block';
   });
 
   customPanel.innerHTML = '';
@@ -570,13 +575,38 @@ async function compressVideo(preset, inputData, durationSec) {
 }
 
 /* ---------- File & Share ---------- */
-document.getElementById('fileInput').addEventListener('change', (ev) => {
-  const files = ev.target.files;
-  if (files && files.length > 0) {
-    selectedFile = files[0];
-    resultSection.classList.add('hidden');
-    progressSection.classList.add('hidden');
+
+// Block "Choose video" if preset nije izabran (user-click path)
+chooseFileBtn.addEventListener('click', (e) => {
+  if (!selectedPresetId) {
+    e.preventDefault();
+    e.stopPropagation();
+    showProToast('Select a preset first.');
   }
+});
+
+// Kad se fajl izabere:
+// - ako je preset izabran → auto-start sa tim presetom
+// - ako nije (npr. custom flow) → samo zapamti fajl, bez auto-starta
+fileInputEl.addEventListener('change', async (ev) => {
+  const files = ev.target.files;
+  if (!(files && files.length > 0)) return;
+
+  selectedFile = files[0];
+  resultSection.classList.add('hidden');
+  progressSection.classList.add('hidden');
+
+  if (!selectedPresetId) {
+    // Nema preseta => ne pokreći ništa (npr. koristiće Custom)
+    return;
+  }
+
+  const chosen = presets.find(p => p.id === selectedPresetId);
+  if (!chosen) {
+    showProToast('Preset not found. Try again.');
+    return;
+  }
+  await startProcessing(chosen);
 });
 
 shareBtn.addEventListener('click', async () => {
