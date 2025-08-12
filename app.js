@@ -15,14 +15,17 @@ const topPresetsContainer   = document.getElementById('topPresets');
 const otherPresetsContainer = document.getElementById('otherPresets');
 const customPanel           = document.getElementById('customPanel');
 const customLock            = document.getElementById('customLock');
+
 const progressSection       = document.getElementById('progressSection');
 const progressBar           = document.getElementById('progressBar');
 const progressLabel         = document.getElementById('progressLabel');
+
 const resultSection         = document.getElementById('resultSection');
 const resultVideo           = document.getElementById('resultVideo');
 const downloadLink          = document.getElementById('downloadLink');
 const shareBtn              = document.getElementById('shareBtn');
 const nagMessage            = document.getElementById('nagMessage');
+
 const chooseFileBtn         = document.getElementById('chooseFileBtn');
 const compressBtn           = document.getElementById('compressBtn'); // may be null
 const fileHint              = document.getElementById('fileHint');    // may be null
@@ -36,8 +39,14 @@ let ffmpegReady = false;
 let __fflog = [];
 
 /* ---------- Learn more modal ---------- */
-function openLearnModal(){ const d=document.getElementById('learnModal'); if(d && !d.open) d.showModal(); }
-function closeLearnModal(){ const d=document.getElementById('learnModal'); if(d && d.open) d.close(); }
+function openLearnModal(){
+  const d=document.getElementById('learnModal');
+  if(d && !d.open) d.showModal();
+}
+function closeLearnModal(){
+  const d=document.getElementById('learnModal');
+  if(d && d.open) d.close();
+}
 window.openLearnModal = openLearnModal;
 window.closeLearnModal = closeLearnModal;
 
@@ -63,11 +72,9 @@ function showDebugOverlay(title, body) {
     x.onclick=()=>el.remove();
     x.style.cssText='background:transparent;border:0;color:#e8edf5;font-size:20px;cursor:pointer;';
     head.appendChild(h); head.appendChild(x);
-
     const pre=document.createElement('pre');
     pre.style.cssText='font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; white-space:pre-wrap; padding:12px 16px; margin:0; font-size:12px; line-height:1.4; color:#cfe3ff;';
     pre.textContent = body||'';
-
     card.appendChild(head); card.appendChild(pre);
     el.appendChild(card);
     document.body.appendChild(el);
@@ -199,17 +206,25 @@ function createPresetCard(preset){
   const header = document.createElement('div'); header.className='preset-header';
   const title  = document.createElement('div'); title.className='preset-title'; title.textContent=preset.label;
   const category=document.createElement('div'); category.className='preset-category'; category.textContent=preset.category;
-  header.appendChild(title); header.appendChild(category); card.appendChild(header);
+  header.appendChild(title); header.appendChild(category);
+  card.appendChild(header);
 
-  if (preset.hint){ const hintEl=document.createElement('div'); hintEl.className='preset-hint'; hintEl.textContent=preset.hint; card.appendChild(hintEl); }
+  if (preset.hint){
+    const hintEl=document.createElement('div');
+    hintEl.className='preset-hint';
+    hintEl.textContent=preset.hint;
+    card.appendChild(hintEl);
+  }
 
   const locked = isPresetLocked(preset.id);
   if (locked){
     card.classList.add('locked');
-    const lock=document.createElement('div'); lock.className='lock-icon'; lock.innerHTML='&#128274;'; header.appendChild(lock);
+    const lock=document.createElement('div'); lock.className='lock-icon'; lock.innerHTML='&#128274;';
+    header.appendChild(lock);
   }
 
-  if (preset.hint){ card.title=preset.hint;
+  if (preset.hint){
+    card.title=preset.hint;
     card.addEventListener('mouseenter',e=>showTip(preset.hint,e.clientX,e.clientY));
     card.addEventListener('mousemove', e=>showTip(preset.hint,e.clientX,e.clientY));
     card.addEventListener('mouseleave',hideTip);
@@ -236,7 +251,6 @@ function renderCustomBuilder(){
     if (learn) learn.onclick = () => openLearnModal(); // always open modal
     return;
   }
-
   customPanel.style.display='';
   customLock.classList.add('hidden');
 
@@ -321,13 +335,11 @@ function estimateSizeRangeMB(preset, durationSec){
 
 /* ---------- FFmpeg plumbing ---------- */
 function toEven(n){ if(n==null) return null; const i = Math.max(2, Math.round(n)); return (i%2===0)?i:(i-1); }
-
 function buildFilter(preset){
   const filters=[];
   const aspect = preset.aspect;
   const fit    = preset.fit;
   let maxHeight = preset.maxHeight;
-
   let targetWidth=null, targetHeight=null;
 
   if (maxHeight){
@@ -357,7 +369,6 @@ function buildFilter(preset){
     const wm = `drawbox=x=10:y=H-50:w=180:h=36:color=white@0.14:t=fill`;
     filters.push(wm);
   }
-
   return filters.join(',');
 }
 
@@ -366,10 +377,17 @@ async function ensureFFmpegLoaded(){
   let createFFmpeg;
   try{
     ({ createFFmpeg } = await import('https://unpkg.com/@ffmpeg/ffmpeg@0.12.1/dist/ffmpeg.min.js?module'));
-    ffmpeg = createFFmpeg({ log:false, corePath:'https://unpkg.com/@ffmpeg/core@0.12.1/dist/ffmpeg-core.js' });
+    // Prefer single-thread core for widest compatibility (no SharedArrayBuffer)
+    ffmpeg = createFFmpeg({
+      log: true,
+      corePath: 'https://unpkg.com/@ffmpeg/core-st@0.12.1/dist/ffmpeg-core.js'
+    });
   }catch(_e){
     ({ createFFmpeg } = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.1/dist/ffmpeg.min.js?module'));
-    ffmpeg = createFFmpeg({ log:false, corePath:'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.1/dist/ffmpeg-core.js' });
+    ffmpeg = createFFmpeg({
+      log: true,
+      corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@0.12.1/dist/ffmpeg-core.js'
+    });
   }
 
   ffmpeg.setProgress(({ ratio })=>{
@@ -381,7 +399,7 @@ async function ensureFFmpegLoaded(){
   __fflog = [];
   ffmpeg.setLogger(({ type, message })=>{
     __fflog.push(`[${type}] ${message}`);
-    if (__fflog.length>200) __fflog.shift();
+    if (__fflog.length>600) __fflog.shift();
   });
 
   await ffmpeg.load();
@@ -389,6 +407,7 @@ async function ensureFFmpegLoaded(){
 }
 
 async function readFileAsArrayBuffer(file){ return new Uint8Array(await file.arrayBuffer()); }
+
 async function getVideoDuration(file){
   return new Promise((resolve)=>{
     const url = URL.createObjectURL(file);
@@ -427,52 +446,102 @@ async function compressWithArgs(args){
   await ffmpeg.run(...final);
 }
 
-async function compressVideo(preset, inputData, durationSec){
-  // clean any leftovers
-  try{ ffmpeg.FS('unlink','input.mp4'); }catch(_){}
-  try{ ffmpeg.FS('unlink','output.mp4'); }catch(_){}
+// Build video args based on codec + mode
+function buildVideoArgsBase(preset, durationSec){
+  const args = ['-i','input.mp4'];
 
-  ffmpeg.FS('writeFile','input.mp4', inputData);
-
-  const argsBase = ['-i','input.mp4'];
-
-  if (preset.fps) argsBase.push('-r', String(preset.fps));
+  if (preset.fps) args.push('-r', String(preset.fps));
 
   const filterChain = buildFilter(preset);
+  if (filterChain) args.push('-vf', filterChain);
 
+  // Bitrate target for size mode
+  let videoKbps = null;
   if (preset.mode==='size'){
     const targetBytes = (preset.sizeTargetMB||25)*1024*1024;
     const audioKbps   = (preset.audioKbps||128);
     const videoBits   = Math.max(300*1000*(durationSec||0), targetBytes*8 - audioKbps*1000*(durationSec||0));
-    const videoKbps   = Math.max(300, Math.floor(videoBits/Math.max(1,durationSec)/1000));
-    argsBase.push('-b:v', `${videoKbps}k`, '-maxrate', `${videoKbps}k`, '-bufsize', `${Math.max(600, videoKbps*2)}k`);
-    argsBase.push('-crf', String(preset.crf||23));
-  }else{
-    argsBase.push('-crf', String(preset.crf||23));
+    videoKbps         = Math.max(300, Math.floor(videoBits/Math.max(1,durationSec)/1000));
+    args.push('-b:v', `${videoKbps}k`, '-maxrate', `${videoKbps}k`, '-bufsize', `${Math.max(600, videoKbps*2)}k`);
   }
 
-  if (preset.audioKbps) argsBase.push('-b:a', `${preset.audioKbps}k`);
-  argsBase.push('-c:a','aac','-movflags','faststart','-pix_fmt','yuv420p');
+  // Audio always AAC
+  if (preset.audioKbps) args.push('-b:a', `${preset.audioKbps}k`);
+  args.push('-c:a','aac','-movflags','faststart','-pix_fmt','yuv420p');
 
-  if (filterChain) argsBase.push('-vf', filterChain);
-  argsBase.push('output.mp4');
+  return { args, videoKbps };
+}
 
-  // Try with libx264 first, then fallback if encoder missing
+function applyCodecQualityArgs(args, preset, codec, videoKbps){
+  // In size mode već imamo bitrate -> bez CRF/Q-scale dodataka
+  if (preset.mode==='size'){
+    if (codec==='libx264'){
+      args.unshift('-preset','veryfast'); // put before -i not required, but fine anywhere before output
+      args.unshift('-c:v','libx264');
+    }else if (codec==='mpeg4'){
+      args.unshift('-c:v','mpeg4');
+      // no -crf here
+    }
+    return;
+  }
+
+  // quality mode
+  if (codec==='libx264'){
+    args.unshift('-crf', String(preset.crf||23));
+    args.unshift('-preset','veryfast');
+    args.unshift('-c:v','libx264');
+  }else if (codec==='mpeg4'){
+    const q = Math.min(31, Math.max(2, Math.round((preset.crf||23)/2))); // crude map CRF->qscale
+    args.unshift('-q:v', String(q));
+    args.unshift('-c:v','mpeg4');
+  }
+}
+
+async function tryTranscode(preset, durationSec, codec){
+  // clean any leftovers
+  try{ ffmpeg.FS('unlink','output.mp4'); }catch(_){}
+  const base = buildVideoArgsBase(preset, durationSec);
+  const args = [...base.args, 'output.mp4'];
+  applyCodecQualityArgs(args, preset, codec, base.videoKbps);
+  await compressWithArgs(args);
+}
+
+async function compressVideo(preset, inputData, durationSec){
+  // clean any leftovers
+  try{ ffmpeg.FS('unlink','input.mp4'); }catch(_){}
+  try{ ffmpeg.FS('unlink','output.mp4'); }catch(_){}
+  ffmpeg.FS('writeFile','input.mp4', inputData);
+
+  // 1) Try libx264
   try{
-    await compressWithArgs(['-c:v','libx264', ...argsBase]);
-  }catch(e){
+    await tryTranscode(preset, durationSec, 'libx264');
+  }catch(e1){
     const logText = __fflog.join('\n');
-    if (/Unknown encoder.*libx264/i.test(logText)){
-      __fflog.push('[info] Retrying without libx264…');
-      await compressWithArgs(argsBase);
-    }else{
-      throw e;
+    // if x264 missing OR crf not supported, fallback to mpeg4
+    __fflog.push('[info] x264 path failed. Falling back to mpeg4…');
+    try{
+      await tryTranscode(preset, durationSec, 'mpeg4');
+    }catch(e2){
+      __fflog.push('[info] Transcode fallback failed. Trying remux (-c copy)…');
+      // 3) Remux-only (-c copy) — last resort to verify pipeline
+      try{
+        // rewrite input, then copy
+        try{ ffmpeg.FS('unlink','input.mp4'); }catch(_){}
+        ffmpeg.FS('writeFile','input.mp4', inputData);
+        await compressWithArgs(['-i','input.mp4','-c','copy','-movflags','faststart','output.mp4']);
+      }catch(e3){
+        const last = __fflog.slice(-120).join('\n');
+        showDebugOverlay('FFmpeg log (last lines)', last);
+        throw e1; // bubble original
+      }
     }
   }
 
   const output = ffmpeg.FS('readFile','output.mp4');
+
   try{ ffmpeg.FS('unlink','input.mp4'); }catch(_){}
   try{ ffmpeg.FS('unlink','output.mp4'); }catch(_){}
+
   return output;
 }
 
@@ -510,7 +579,6 @@ async function startProcessing(preset){
     // duration (estimate)
     let durationSec = null;
     try{ durationSec = await getVideoDuration(selectedFile); }catch(_){}
-
     if (p.mode==='size' && durationSec){
       const est = estimateSizeRangeMB(p, durationSec);
       if (est){
@@ -527,6 +595,7 @@ async function startProcessing(preset){
 
     progressLabel.textContent='Reading video…';
     const inputData = await readFileAsArrayBuffer(selectedFile);
+
     if (!durationSec){ try{ durationSec = await getVideoDuration(selectedFile); }catch(_){} }
 
     progressLabel.textContent='Compressing… 0%';
@@ -534,37 +603,28 @@ async function startProcessing(preset){
     try{
       result = await compressVideo(p, inputData, durationSec||0);
     }catch(errMain){
-      // As a last resort: remux-only (no transcode) to test pipeline
-      __fflog.push('[info] Main transcode failed. Trying remux (-c copy)…');
-      try{
-        // write again, run -c copy
-        try{ ffmpeg.FS('unlink','input.mp4'); }catch(_){}
-        ffmpeg.FS('writeFile','input.mp4', inputData);
-        await compressWithArgs(['-i','input.mp4','-c','copy','-movflags','faststart','output.mp4']);
-        result = ffmpeg.FS('readFile','output.mp4');
-      }catch(errCopy){
-        // bubble with detailed log overlay
-        const last = __fflog.slice(-80).join('\n');
-        showDebugOverlay('FFmpeg log (last lines)', last);
-        throw errMain;
-      }
+      const last = __fflog.slice(-160).join('\n');
+      showDebugOverlay('FFmpeg log (last lines)', last);
+      throw errMain;
     }
 
     // Present result
-    const blob = new Blob([result.buffer], { type:'video/mp4' });
+    const blob = new Blob([result], { type:'video/mp4' });
     const url = URL.createObjectURL(blob);
     resultVideo.src = url;
     downloadLink.href = url;
     downloadLink.download = generateDownloadName(selectedFile.name, p);
     resultSection.classList.remove('hidden');
     progressSection.classList.add('hidden');
+
     incrementRenderCount();
 
     const { name } = getPlan();
     nagMessage.textContent = (name==='free') ? '' : '';
-    // Stay in compress mode
+
+    // stay in compress mode
   }catch(err){
-    console.error('FFmpeg error:', err, __fflog.slice(-80).join('\n'));
+    console.error('FFmpeg error:', err, __fflog.slice(-120).join('\n'));
     showInfoToast('Operation failed.');
     progressSection.classList.add('hidden');
     switchToChooseMode();
@@ -589,13 +649,11 @@ chooseFileBtn.addEventListener('click',(e)=>{
 fileInputEl.addEventListener('change', async (ev)=>{
   const files = ev.target.files;
   if (!(files && files.length>0)) return;
-
   if (!selectedPresetId){
     ev.target.value=''; selectedFile=null;
     showInfoToast('Select preset first.');
     return;
   }
-
   selectedFile = files[0];
   resultSection.classList.add('hidden');
   progressSection.classList.add('hidden');
