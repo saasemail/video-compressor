@@ -70,7 +70,7 @@ function hideProToast() {
   const t = document.getElementById('proToast');
   if (t) {
     t.classList.add('hidden');
-    // vrati default (da sledeći Pro toast ima ikonu/naslov)
+    // reset default stanja
     const icon   = t.querySelector('.toast-icon');
     const strong = t.querySelector('.toast-text strong');
     if (icon)   icon.style.display = '';
@@ -137,7 +137,6 @@ function scoreByResFps(p) {
 }
 function sortOthers(arr) {
   return arr.slice().sort((a, b) => {
-    // PRO (zaključani) gore radi konverzije
     const la = isPresetLocked(a.id) ? 0 : 1;
     const lb = isPresetLocked(b.id) ? 0 : 1;
     if (la !== lb) return la - lb;
@@ -156,7 +155,6 @@ function renderPresets() {
   topPresetsContainer.innerHTML = '';
   otherPresetsContainer.innerHTML = '';
 
-  // Top 3 FREE (fiksan redosled) — Chat 16MB, Email 25MB, Quick Share 720p
   const topIds = ['im_16mb', 'email_25mb', 'quick_720p'];
   const byId = new Map(presets.map(p => [p.id, p]));
   topIds.forEach(id => {
@@ -164,7 +162,6 @@ function renderPresets() {
     if (p) topPresetsContainer.appendChild(createPresetCard(p));
   });
 
-  // Ostali sortirani deterministički
   const others = presets.filter(p => !topIds.includes(p.id));
   sortOthers(others).forEach(preset => {
     otherPresetsContainer.appendChild(createPresetCard(preset));
@@ -232,13 +229,17 @@ function createPresetCard(preset) {
 /* ---------- Custom builder ---------- */
 function renderCustomBuilder() {
   if (!isCustomEnabled()) {
-    customLock.classList.remove('hidden');
+    // SAKRIJ prazan panel, prikaži samo lock karticu
+    customPanel.style.display = 'none';
     customPanel.innerHTML = '';
+    customLock.classList.remove('hidden');
     const learn = document.getElementById('learnMorePro');
-    if (learn) learn.onclick = () => showProToast('Custom builder is available in Pro.');
+    if (learn) learn.onclick = () => showProToast('Custom builder is a Pro feature.');
     return;
   }
 
+  // PRO: prikaži panel, sakrij lock
+  customPanel.style.display = '';
   customLock.classList.add('hidden');
 
   const fragment = document.createDocumentFragment();
