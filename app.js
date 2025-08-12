@@ -24,26 +24,32 @@ const downloadLink          = document.getElementById('downloadLink');
 const shareBtn              = document.getElementById('shareBtn');
 const nagMessage            = document.getElementById('nagMessage');
 const chooseFileBtn         = document.getElementById('chooseFileBtn');
-const compressBtn           = document.getElementById('compressBtn'); // new
-const fileHint              = document.getElementById('fileHint');    // new
+const compressBtn           = document.getElementById('compressBtn'); // may be null if HTML not updated
+const fileHint              = document.getElementById('fileHint');    // may be null
 const fileInputEl           = document.getElementById('fileInput');
 
 let presets = [];
 let selectedFile = null;
-let selectedPresetId = null; // selected preset
+let selectedPresetId = null;
 let ffmpeg = null;
 let ffmpegReady = false;
+let __fflog = [];
 
-/* ---------- UI helpers (Choose vs Compress) ---------- */
+/* ---------- Learn more modal ---------- */
+function openLearnModal(){ const d=document.getElementById('learnModal'); if(d && !d.open) d.showModal(); }
+function closeLearnModal(){ const d=document.getElementById('learnModal'); if(d && d.open) d.close(); }
+window.openLearnModal = openLearnModal;
+window.closeLearnModal = closeLearnModal;
+
+/* ---------- UI: Choose vs Compress ---------- */
 function switchToChooseMode() {
   if (chooseFileBtn) chooseFileBtn.style.display = '';
   if (compressBtn)   compressBtn.style.display   = 'none';
   if (fileHint)      fileHint.style.display      = '';
-  // reset current file selection
-  if (fileInputEl) fileInputEl.value = '';
+  if (fileInputEl)   fileInputEl.value           = '';
   selectedFile = null;
+  progressSection.classList.add('hidden');
 }
-
 function switchToCompressMode() {
   if (chooseFileBtn) chooseFileBtn.style.display = 'none';
   if (compressBtn)   compressBtn.style.display   = '';
@@ -51,194 +57,133 @@ function switchToCompressMode() {
 }
 
 /* ---------- Toasts ---------- */
-// Pro-styled toast (with icon and "Pro feature")
-function showProToast(msg = 'This feature is available in Pro.') {
-  const t = document.getElementById('proToast');
-  if (!t) return;
-  const span   = document.getElementById('proToastMsg');
-  const icon   = t.querySelector('.toast-icon');
+function showProToast(msg='This feature is available in Pro.') {
+  const t = document.getElementById('proToast'); if(!t) return;
+  const span = document.getElementById('proToastMsg');
+  const icon = t.querySelector('.toast-icon');
   const strong = t.querySelector('.toast-text strong');
-  if (icon)   icon.style.display = '';
-  if (strong) {
-    strong.textContent = 'Pro feature';
-    strong.style.display = '';
-  }
+  if (icon) icon.style.display = '';
+  if (strong){ strong.textContent='Pro feature'; strong.style.display=''; }
   if (span) span.textContent = ' ' + msg + ' ';
   t.classList.remove('hidden');
   clearTimeout(window.__proToastTimer);
   window.__proToastTimer = setTimeout(hideProToast, 2200);
 }
-
-// Neutral toast (no icon / no "Pro feature")
-function showInfoToast(msg = '') {
-  const t = document.getElementById('proToast');
-  if (!t) return;
-  const span   = document.getElementById('proToastMsg');
-  const icon   = t.querySelector('.toast-icon');
+function showInfoToast(msg='') {
+  const t = document.getElementById('proToast'); if(!t) return;
+  const span = document.getElementById('proToastMsg');
+  const icon = t.querySelector('.toast-icon');
   const strong = t.querySelector('.toast-text strong');
-  if (icon)   icon.style.display = 'none';
+  if (icon) icon.style.display = 'none';
   if (strong) strong.style.display = 'none';
   if (span) span.textContent = ' ' + msg + ' ';
   t.classList.remove('hidden');
   clearTimeout(window.__proToastTimer);
   window.__proToastTimer = setTimeout(hideProToast, 2000);
 }
-
-function hideProToast() {
+function hideProToast(){
   const t = document.getElementById('proToast');
-  if (t) {
+  if (t){
     t.classList.add('hidden');
-    // restore default state for next Pro toast
-    const icon   = t.querySelector('.toast-icon');
+    const icon = t.querySelector('.toast-icon');
     const strong = t.querySelector('.toast-text strong');
-    if (icon)   icon.style.display = '';
-    if (strong) strong.style.display = '';
+    if (icon) icon.style.display='';
+    if (strong) strong.style.display='';
   }
   clearTimeout(window.__proToastTimer);
 }
-window.showProToast = showProToast;
 window.hideProToast = hideProToast;
 
-/* ---------- Tiny tooltip for preset cards (hover) ---------- */
+/* ---------- Tooltip for preset cards ---------- */
 const __tip = document.createElement('div');
 Object.assign(__tip.style, {
-  position: 'fixed',
-  zIndex: 10000,
-  display: 'none',
-  maxWidth: '280px',
-  padding: '8px 10px',
-  borderRadius: '10px',
-  background: 'rgba(18,23,35,0.95)',
-  color: '#e8edf5',
-  border: '1px solid rgba(255,255,255,0.1)',
-  fontSize: '12.5px',
-  lineHeight: '1.35',
-  pointerEvents: 'none',
-  boxShadow: '0 8px 24px rgba(0,0,0,0.35)'
+  position:'fixed', zIndex:10000, display:'none', maxWidth:'280px',
+  padding:'8px 10px', borderRadius:'10px', background:'rgba(18,23,35,0.95)',
+  color:'#e8edf5', border:'1px solid rgba(255,255,255,0.1)', fontSize:'12.5px',
+  lineHeight:'1.35', pointerEvents:'none', boxShadow:'0 8px 24px rgba(0,0,0,0.35)'
 });
 document.body.appendChild(__tip);
-
-function showTip(text, x, y) {
-  __tip.textContent = text;
-  __tip.style.display = 'block';
-  const offset = 14;
-  __tip.style.left = Math.min(x + offset, window.innerWidth - 300) + 'px';
-  __tip.style.top  = Math.min(y + offset, window.innerHeight - 60) + 'px';
+function showTip(text,x,y){
+  __tip.textContent=text; __tip.style.display='block';
+  const offset=14;
+  __tip.style.left = Math.min(x+offset, window.innerWidth-300)+'px';
+  __tip.style.top  = Math.min(y+offset, window.innerHeight-60)+'px';
 }
-function hideTip(){ __tip.style.display = 'none'; }
+function hideTip(){ __tip.style.display='none'; }
 
 /* ---------- Presets ---------- */
-async function loadPresets() {
+async function loadPresets(){
   const resp = await fetch('./presets.json');
   presets = await resp.json();
 }
-
-/* Group/sort for “other” presets — stable/predictable */
-function groupRank(p) {
-  const id = (p.id || '');
-  if (id.startsWith('9x16_'))  return 0;  // Vertical
-  if (id.startsWith('4x5_'))   return 1;  // Portrait
-  if (id.startsWith('1x1_'))   return 2;  // Square
-  if (id.startsWith('16x9_'))  return 3;  // Landscape
-  if (id === 'discord_10mb' || id === 'discord_8mb') return 4;  // Discord
-  if (id.startsWith('im_'))    return 5;  // Chat size-capped
-  if (id.startsWith('email_')) return 6;  // Email size-capped
-  if (id === 'source_friendly')return 7;  // Utility
+function groupRank(p){
+  const id = (p.id||'');
+  if (id.startsWith('9x16_')) return 0;
+  if (id.startsWith('4x5_' )) return 1;
+  if (id.startsWith('1x1_' )) return 2;
+  if (id.startsWith('16x9_')) return 3;
+  if (id === 'discord_10mb' || id === 'discord_8mb') return 4;
+  if (id.startsWith('im_' )) return 5;
+  if (id.startsWith('email_')) return 6;
+  if (id === 'source_friendly') return 7;
   return 8;
 }
-function scoreByResFps(p) {
-  const m = (p.id || '').match(/_(\d{3,4})(?:_(\d{2}))?$/);
-  const res = m ? parseInt(m[1], 10) : (p.maxHeight || 0);
-  const fps = m && m[2] ? parseInt(m[2], 10) : (p.fps || 0);
-  const fpsBoost = (fps === 30 ? 2 : fps === 60 ? 1 : 0);
-  return res * 100 + fpsBoost;
+function scoreByResFps(p){
+  const m = (p.id||'').match(/_(\d{3,4})(?:_(\d{2}))?$/);
+  const res = m ? parseInt(m[1],10) : (p.maxHeight||0);
+  const fps = m && m[2] ? parseInt(m[2],10) : (p.fps||0);
+  const fpsBoost = (fps===30?2:(fps===60?1:0));
+  return res*100 + fpsBoost;
 }
-function sortOthers(arr) {
-  return arr.slice().sort((a, b) => {
-    const la = isPresetLocked(a.id) ? 0 : 1;
-    const lb = isPresetLocked(b.id) ? 0 : 1;
-    if (la !== lb) return la - lb;
-
-    const ga = groupRank(a), gb = groupRank(b);
-    if (ga !== gb) return ga - gb;
-
-    const sa = scoreByResFps(a), sb = scoreByResFps(b);
-    if (sa !== sb) return sb - sa;
-
-    return (a.label || '').localeCompare(b.label || '');
+function sortOthers(arr){
+  return arr.slice().sort((a,b)=>{
+    const la = isPresetLocked(a.id)?0:1;
+    const lb = isPresetLocked(b.id)?0:1;
+    if (la!==lb) return la-lb;
+    const ga=groupRank(a), gb=groupRank(b);
+    if (ga!==gb) return ga-gb;
+    const sa=scoreByResFps(a), sb=scoreByResFps(b);
+    if (sa!==sb) return sb-sa;
+    return (a.label||'').localeCompare(b.label||'');
   });
 }
-
-function renderPresets() {
-  topPresetsContainer.innerHTML = '';
-  otherPresetsContainer.innerHTML = '';
-
-  // Top 3 FREE — Chat 16MB, Email 25MB, Quick Share 720p
-  const topIds = ['im_16mb', 'email_25mb', 'quick_720p'];
-  const byId = new Map(presets.map(p => [p.id, p]));
-  topIds.forEach(id => {
-    const p = byId.get(id);
-    if (p) topPresetsContainer.appendChild(createPresetCard(p));
-  });
-
-  // Others sorted deterministically
-  const others = presets.filter(p => !topIds.includes(p.id));
-  sortOthers(others).forEach(preset => {
-    otherPresetsContainer.appendChild(createPresetCard(preset));
-  });
+function renderPresets(){
+  topPresetsContainer.innerHTML='';
+  otherPresetsContainer.innerHTML='';
+  const topIds=['im_16mb','email_25mb','quick_720p'];
+  const byId = new Map(presets.map(p=>[p.id,p]));
+  topIds.forEach(id=>{ const p=byId.get(id); if(p) topPresetsContainer.appendChild(createPresetCard(p)); });
+  const others = presets.filter(p=>!topIds.includes(p.id));
+  sortOthers(others).forEach(p=>otherPresetsContainer.appendChild(createPresetCard(p)));
 }
-
-function createPresetCard(preset) {
+function createPresetCard(preset){
   const card = document.createElement('div');
-  card.className = 'preset-card';
+  card.className='preset-card';
   card.dataset.presetId = preset.id;
 
-  const header = document.createElement('div');
-  header.className = 'preset-header';
+  const header = document.createElement('div'); header.className='preset-header';
+  const title  = document.createElement('div'); title.className='preset-title'; title.textContent=preset.label;
+  const category=document.createElement('div'); category.className='preset-category'; category.textContent=preset.category;
+  header.appendChild(title); header.appendChild(category); card.appendChild(header);
 
-  const title = document.createElement('div');
-  title.className = 'preset-title';
-  title.textContent = preset.label;
-
-  const category = document.createElement('div');
-  category.className = 'preset-category';
-  category.textContent = preset.category;
-
-  header.appendChild(title);
-  header.appendChild(category);
-  card.appendChild(header);
-
-  if (preset.hint) {
-    const hintEl = document.createElement('div');
-    hintEl.className = 'preset-hint';
-    hintEl.textContent = preset.hint;
-    card.appendChild(hintEl);
-  }
+  if (preset.hint){ const hintEl=document.createElement('div'); hintEl.className='preset-hint'; hintEl.textContent=preset.hint; card.appendChild(hintEl); }
 
   const locked = isPresetLocked(preset.id);
-  if (locked) {
+  if (locked){
     card.classList.add('locked');
-    const lock = document.createElement('div');
-    lock.className = 'lock-icon';
-    lock.innerHTML = '&#128274;';
-    header.appendChild(lock);
+    const lock=document.createElement('div'); lock.className='lock-icon'; lock.innerHTML='&#128274;'; header.appendChild(lock);
   }
 
-  if (preset.hint) {
-    card.title = preset.hint;
-    card.addEventListener('mouseenter', e => showTip(preset.hint, e.clientX, e.clientY));
-    card.addEventListener('mousemove',  e => showTip(preset.hint, e.clientX, e.clientY));
-    card.addEventListener('mouseleave', hideTip);
+  if (preset.hint){ card.title=preset.hint;
+    card.addEventListener('mouseenter',e=>showTip(preset.hint,e.clientX,e.clientY));
+    card.addEventListener('mousemove', e=>showTip(preset.hint,e.clientX,e.clientY));
+    card.addEventListener('mouseleave',hideTip);
   }
 
-  // Click now ONLY selects the preset
-  card.addEventListener('click', () => {
-    if (locked) {
-      showProToast('This preset is available in Pro.');
-      return;
-    }
+  card.addEventListener('click', ()=>{
+    if (locked){ showProToast('This preset is available in Pro.'); return; }
     selectedPresetId = preset.id;
-    document.querySelectorAll('.preset-card.selected').forEach(el => el.classList.remove('selected'));
+    document.querySelectorAll('.preset-card.selected').forEach(el=>el.classList.remove('selected'));
     card.classList.add('selected');
     hideProToast();
   });
@@ -247,411 +192,341 @@ function createPresetCard(preset) {
 }
 
 /* ---------- Custom builder ---------- */
-function renderCustomBuilder() {
-  if (!isCustomEnabled()) {
-    // Hide empty panel, show lock card
-    customPanel.style.display = 'none';
-    customPanel.innerHTML = '';
+function renderCustomBuilder(){
+  if (!isCustomEnabled()){
+    customPanel.style.display='none';
+    customPanel.innerHTML='';
     customLock.classList.remove('hidden');
-    const learn = document.getElementById('learnMorePro');
-    if (learn) learn.onclick = () => showProToast('Custom builder is a Pro feature.');
+    const learn=document.getElementById('learnMorePro');
+    if (learn) learn.onclick = () => openLearnModal(); // always open modal (not locked)
     return;
   }
 
-  // PRO: show panel, hide lock
-  customPanel.style.display = '';
+  customPanel.style.display='';
   customLock.classList.add('hidden');
 
   const fragment = document.createDocumentFragment();
 
-  // Aspect ratio
-  const aspectLabel = document.createElement('label');
-  aspectLabel.textContent = 'Aspect ratio';
-  const aspectSelect = document.createElement('select');
-  aspectSelect.id = 'customAspect';
-  ['keep','16:9','9:16','1:1','4:5'].forEach(value => {
-    const opt = document.createElement('option');
-    opt.value = value;
-    opt.textContent = value === 'keep' ? 'Keep source' : value;
-    aspectSelect.appendChild(opt);
-  });
-  fragment.appendChild(aspectLabel);
-  fragment.appendChild(aspectSelect);
+  const aspectLabel=document.createElement('label'); aspectLabel.textContent='Aspect ratio';
+  const aspectSelect=document.createElement('select'); aspectSelect.id='customAspect';
+  ['keep','16:9','9:16','1:1','4:5'].forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent=(v==='keep'?'Keep source':v); aspectSelect.appendChild(o); });
+  fragment.appendChild(aspectLabel); fragment.appendChild(aspectSelect);
 
-  // Fit
-  const fitLabel = document.createElement('label');
-  fitLabel.textContent = 'Fit';
-  const fitSelect = document.createElement('select');
-  fitSelect.id = 'customFit';
-  ['cover','contain'].forEach(value => {
-    const opt = document.createElement('option');
-    opt.value = value;
-    opt.textContent = value;
-    fitSelect.appendChild(opt);
-  });
-  fragment.appendChild(fitLabel);
-  fragment.appendChild(fitSelect);
+  const fitLabel=document.createElement('label'); fitLabel.textContent='Fit';
+  const fitSelect=document.createElement('select'); fitSelect.id='customFit';
+  ['cover','contain'].forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent=v; fitSelect.appendChild(o); });
+  fragment.appendChild(fitLabel); fragment.appendChild(fitSelect);
 
-  // Max height
-  const heightLabel = document.createElement('label');
-  heightLabel.textContent = 'Max height (px)';
-  const heightInput = document.createElement('input');
-  heightInput.type = 'number';
-  heightInput.id = 'customMaxHeight';
-  heightInput.placeholder = 'e.g. 1080';
-  heightInput.min = 0;
-  fragment.appendChild(heightLabel);
-  fragment.appendChild(heightInput);
+  const heightLabel=document.createElement('label'); heightLabel.textContent='Max height (px)';
+  const heightInput=document.createElement('input'); heightInput.type='number'; heightInput.id='customMaxHeight'; heightInput.placeholder='e.g. 1080'; heightInput.min=0;
+  fragment.appendChild(heightLabel); fragment.appendChild(heightInput);
 
-  // FPS
-  const fpsLabel = document.createElement('label');
-  fpsLabel.textContent = 'FPS';
-  const fpsInput = document.createElement('input');
-  fpsInput.type = 'number';
-  fpsInput.id = 'customFps';
-  fpsInput.placeholder = 'e.g. 30';
-  fpsInput.min = 1;
-  fragment.appendChild(fpsLabel);
-  fragment.appendChild(fpsInput);
+  const fpsLabel=document.createElement('label'); fpsLabel.textContent='FPS';
+  const fpsInput=document.createElement('input'); fpsInput.type='number'; fpsInput.id='customFps'; fpsInput.placeholder='e.g. 30'; fpsInput.min=1;
+  fragment.appendChild(fpsLabel); fragment.appendChild(fpsInput);
 
-  // Mode
-  const modeLabel = document.createElement('label');
-  modeLabel.textContent = 'Mode';
-  const modeSelect = document.createElement('select');
-  modeSelect.id = 'customMode';
-  ['size','quality'].forEach(value => {
-    const opt = document.createElement('option');
-    opt.value = value;
-    opt.textContent = value.charAt(0).toUpperCase() + value.slice(1);
-    modeSelect.appendChild(opt);
-  });
-  fragment.appendChild(modeLabel);
-  fragment.appendChild(modeSelect);
+  const modeLabel=document.createElement('label'); modeLabel.textContent='Mode';
+  const modeSelect=document.createElement('select'); modeSelect.id='customMode';
+  ['size','quality'].forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent=v[0].toUpperCase()+v.slice(1); modeSelect.appendChild(o); });
+  fragment.appendChild(modeLabel); fragment.appendChild(modeSelect);
 
-  // Size target
-  const sizeLabel = document.createElement('label');
-  sizeLabel.id = 'customSizeLabel';
-  sizeLabel.textContent = 'Target size (MB)';
-  const sizeInput = document.createElement('input');
-  sizeInput.type = 'number';
-  sizeInput.id = 'customSizeTarget';
-  sizeInput.placeholder = 'e.g. 50';
-  sizeInput.min = 1;
-  fragment.appendChild(sizeLabel);
-  fragment.appendChild(sizeInput);
+  const sizeLabel=document.createElement('label'); sizeLabel.id='customSizeLabel'; sizeLabel.textContent='Target size (MB)';
+  const sizeInput=document.createElement('input'); sizeInput.type='number'; sizeInput.id='customSizeTarget'; sizeInput.placeholder='e.g. 50'; sizeInput.min=1;
+  fragment.appendChild(sizeLabel); fragment.appendChild(sizeInput);
 
-  // CRF
-  const crfLabel = document.createElement('label');
-  crfLabel.id = 'customCrfLabel';
-  crfLabel.textContent = 'Quality (CRF)';
-  crfLabel.style.display = 'none';
-  const crfInput = document.createElement('input');
-  crfInput.type = 'number';
-  crfInput.id = 'customCrf';
-  crfInput.placeholder = 'e.g. 23';
-  crfInput.min = 1;
-  crfInput.max = 51;
-  crfInput.style.display = 'none';
-  fragment.appendChild(crfLabel);
-  fragment.appendChild(crfInput);
+  const crfLabel=document.createElement('label'); crfLabel.id='customCrfLabel'; crfLabel.textContent='Quality (CRF)'; crfLabel.style.display='none';
+  const crfInput=document.createElement('input'); crfInput.type='number'; crfInput.id='customCrf'; crfInput.placeholder='e.g. 23'; crfInput.min=1; crfInput.max=51; crfInput.style.display='none';
+  fragment.appendChild(crfLabel); fragment.appendChild(crfInput);
 
-  // Audio bitrate
-  const audioLabel = document.createElement('label');
-  audioLabel.textContent = 'Audio (kbps)';
-  const audioInput = document.createElement('input');
-  audioInput.type = 'number';
-  audioInput.id = 'customAudioKbps';
-  audioInput.placeholder = 'e.g. 128';
-  audioInput.min = 32;
-  audioInput.step = 8;
-  fragment.appendChild(audioLabel);
-  fragment.appendChild(audioInput);
+  const audioLabel=document.createElement('label'); audioLabel.textContent='Audio (kbps)';
+  const audioInput=document.createElement('input'); audioInput.type='number'; audioInput.id='customAudioKbps'; audioInput.placeholder='e.g. 128'; audioInput.min=32; audioInput.step=8;
+  fragment.appendChild(audioLabel); fragment.appendChild(audioInput);
 
-  // Submit
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'btn btn-primary';
-  btn.textContent = 'Compress';
-  btn.addEventListener('click', async () => {
-    if (!selectedFile) {
-      fileInputEl.click(); // custom flow can prompt for file
-      return;
-    }
-    const customPreset = {
-      id: 'custom',
-      label: 'Custom',
-      category: 'Custom',
+  const btn=document.createElement('button'); btn.type='button'; btn.className='btn btn-primary'; btn.textContent='Compress';
+  btn.addEventListener('click', async ()=>{
+    if (!selectedFile){ fileInputEl.click(); return; }
+    const customPreset={
+      id:'custom', label:'Custom', category:'Custom',
       mode: modeSelect.value,
-      sizeTargetMB: Number(sizeInput.value) || 50,
+      sizeTargetMB: Number(sizeInput.value)||50,
       aspect: aspectSelect.value,
       fit: fitSelect.value,
-      maxHeight: parseInt(heightInput.value, 10) || null,
-      fps: parseInt(fpsInput.value, 10) || null,
-      audioKbps: parseInt(audioInput.value, 10) || 128,
-      crf: parseInt(crfInput.value, 10) || 23
+      maxHeight: parseInt(heightInput.value,10)||null,
+      fps: parseInt(fpsInput.value,10)||null,
+      audioKbps: parseInt(audioInput.value,10)||128,
+      crf: parseInt(crfInput.value,10)||23
     };
-    try {
-      await startProcessing(customPreset);
-    } catch (e) {
-      console.error(e);
-      showInfoToast('Compression failed. Choose a video again.');
-      switchToChooseMode();
-    }
+    await startProcessing(customPreset);
   });
   fragment.appendChild(btn);
 
-  // Toggle size/quality inputs
-  modeSelect.addEventListener('change', () => {
-    const isSize = modeSelect.value === 'size';
-    sizeLabel.style.display = isSize ? 'block' : 'none';
-    sizeInput.style.display = isSize ? 'block' : 'none';
-    crfLabel.style.display  = isSize ? 'none'  : 'block';
-    crfInput.style.display  = isSize ? 'none'  : 'block';
+  modeSelect.addEventListener('change', ()=>{
+    const isSize = modeSelect.value==='size';
+    sizeLabel.style.display = isSize?'block':'none';
+    sizeInput.style.display = isSize?'block':'none';
+    crfLabel.style.display  = isSize?'none':'block';
+    crfInput.style.display  = isSize?'none':'block';
   });
 
-  customPanel.innerHTML = '';
-  customPanel.appendChild(fragment);
+  customPanel.innerHTML=''; customPanel.appendChild(fragment);
 }
 
 /* ---------- Estimate helpers ---------- */
-function formatMB(mb) {
-  if (mb < 1) return `${Math.round(mb * 1024)} KB`;
-  return `${Math.round(mb * 10) / 10} MB`;
-}
-
-/** Rough size estimate for size-mode presets. Returns {low, mid, high} in MB. */
-function estimateSizeRangeMB(preset, durationSec) {
-  if (preset.mode !== 'size' || !durationSec || !preset.sizeTargetMB) return null;
-  const targetBytes = preset.sizeTargetMB * 1024 * 1024;
-  const audioKbps = preset.audioKbps || 128;
-  const audioBits = audioKbps * 1000 * durationSec;
-  const videoBits = Math.max(300 * 1000 * durationSec, targetBytes * 8 - audioBits);
+function formatMB(mb){ if(mb<1) return `${Math.round(mb*1024)} KB`; return `${Math.round(mb*10)/10} MB`; }
+function estimateSizeRangeMB(preset, durationSec){
+  if (preset.mode!=='size' || !durationSec || !preset.sizeTargetMB) return null;
+  const targetBytes = preset.sizeTargetMB*1024*1024;
+  const audioKbps = preset.audioKbps||128;
+  const audioBits = audioKbps*1000*durationSec;
+  const videoBits = Math.max(300*1000*durationSec, targetBytes*8 - audioBits);
   const totalBits = videoBits + audioBits;
-  const midMB = totalBits / 8 / 1024 / 1024;
-  const lowMB = midMB * 0.9;
-  const highMB = midMB * 1.1;
-  return { low: lowMB, mid: midMB, high: highMB };
+  const midMB = totalBits/8/1024/1024;
+  return { low: midMB*0.9, mid: midMB, high: midMB*1.1 };
 }
 
-/* ---------- Processing ---------- */
-async function startProcessing(preset) {
-  const fileSizeMB = selectedFile.size / (1024 * 1024);
-  const permission = canRender(fileSizeMB);
-  if (!permission.allowed) {
-    showProToast(permission.reason || 'Upgrade to Pro for this action.');
-    // Revert UI so user can pick another file
-    switchToChooseMode();
-    return;
-  }
+/* ---------- FFmpeg plumbing ---------- */
+function toEven(n){ if(n==null) return null; const i = Math.max(2, Math.round(n)); return (i%2===0)?i:(i-1); }
 
-  // === FREE 720p CAP (effective preset) ===
-  const plan = getPlan();
-  const p = { ...preset };
-  if (plan.name === 'free') {
-    const cap = (plan.rules && plan.rules.max_height) ? plan.rules.max_height : 720;
-    if (!p.maxHeight || p.maxHeight > cap) p.maxHeight = cap;
-  }
-
-  // Show progress early
-  progressSection.classList.remove('hidden');
-  progressBar.style.width = '0%';
-
-  // Read duration quickly (no ffmpeg) to estimate
-  let durationSec = null;
-  try { durationSec = await getVideoDuration(selectedFile); } catch (e) {}
-
-  // If size-mode, show rough estimate immediately
-  if (p.mode === 'size' && durationSec) {
-    const est = estimateSizeRangeMB(p, durationSec);
-    if (est) {
-      progressLabel.textContent = `Estimate: ≈${formatMB(est.low)}–${formatMB(est.high)} · Preparing…`;
-    } else {
-      progressLabel.textContent = 'Preparing...';
-    }
-  } else {
-    progressLabel.textContent = 'Preparing...';
-  }
-
-  // Optional free delay
-  const delay = getDelay();
-  if (delay > 0) await new Promise(res => setTimeout(res, delay));
-
-  progressLabel.textContent = 'Loading encoder...';
-  await ensureFFmpegLoaded();
-
-  progressLabel.textContent = 'Reading video...';
-  const inputData = await readFileAsArrayBuffer(selectedFile);
-
-  if (!durationSec) { try { durationSec = await getVideoDuration(selectedFile); } catch (e) {} }
-
-  progressLabel.textContent = 'Compressing...';
-  const result = await compressVideo(p, inputData, durationSec || 0);
-
-  // Present result
-  const blob = new Blob([result.buffer], { type: 'video/mp4' });
-  const url = URL.createObjectURL(blob);
-  resultVideo.src = url;
-  downloadLink.href = url;
-  downloadLink.download = generateDownloadName(selectedFile.name, p);
-  resultSection.classList.remove('hidden');
-  progressSection.classList.add('hidden');
-
-  // Reset header controls to initial (Choose video visible again)
-  switchToChooseMode();
-
-  // Count + nags
-  incrementRenderCount();
-  const { name } = getPlan();
-  nagMessage.textContent = (name === 'free')
-    ? 'Done! Free currently uses 720p with a light watermark. Pro soon: no watermark, batch, faster encodes.'
-    : '';
-}
-
-function generateDownloadName(originalName, preset) {
-  const nameWithoutExt = originalName.replace(/\.[^.]+$/, '');
-  return `${nameWithoutExt}-${preset.id}.mp4`;
-}
-
-async function ensureFFmpegLoaded() {
-  if (ffmpegReady) return;
-  const { createFFmpeg } = await import('https://unpkg.com/@ffmpeg/ffmpeg@0.12.1/dist/ffmpeg.min.js?module');
-  ffmpeg = createFFmpeg({
-    log: false,
-    corePath: 'https://unpkg.com/@ffmpeg/core@0.12.1/dist/ffmpeg-core.js'
-  });
-  ffmpeg.setProgress(({ ratio }) => {
-    const percent = Math.min(100, Math.floor((ratio || 0) * 100));
-    progressBar.style.width = `${percent}%`;
-    progressLabel.textContent = `Processing… ${percent}%`;
-  });
-  await ffmpeg.load();
-  ffmpegReady = true;
-}
-
-async function readFileAsArrayBuffer(file) {
-  return new Uint8Array(await file.arrayBuffer());
-}
-
-async function getVideoDuration(file) {
-  return new Promise((resolve) => {
-    const url = URL.createObjectURL(file);
-    const video = document.createElement('video');
-    video.preload = 'metadata';
-    video.src = url;
-    video.onloadedmetadata = () => {
-      const dur = video.duration;
-      URL.revokeObjectURL(url);
-      resolve(dur);
-    };
-  });
-}
-
-/* Build -vf filter string for scale/crop/pad */
-function buildFilter(preset) {
-  const filters = [];
+function buildFilter(preset){
+  const filters=[];
   const aspect = preset.aspect;
-  const fit = preset.fit;
-  const maxHeight = preset.maxHeight;
+  const fit    = preset.fit;
+  let maxHeight = preset.maxHeight;
 
-  let targetWidth = null;
-  let targetHeight = null;
+  let targetWidth=null, targetHeight=null;
 
-  if (maxHeight) {
+  if (maxHeight){
+    maxHeight = toEven(maxHeight);
     targetHeight = maxHeight;
-    if (aspect && aspect !== 'keep') {
-      const ratioMap = { '16:9': 16/9, '9:16': 9/16, '1:1': 1, '4:5': 4/5 };
+    if (aspect && aspect!=='keep'){
+      const ratioMap = {'16:9':16/9,'9:16':9/16,'1:1':1,'4:5':4/5};
       const ratio = ratioMap[aspect];
-      targetWidth = Math.round(maxHeight * ratio);
+      targetWidth = toEven(maxHeight * ratio);
     }
   }
 
-  if (!aspect || aspect === 'keep') {
-    if (maxHeight) {
-      filters.push(`scale=-2:${maxHeight}`);
-    }
-  } else if (fit === 'cover') {
-    const w = targetWidth;
-    const h = targetHeight;
-    filters.push(`scale=iw*max(${w}/iw,${h}/ih):ih*max(${w}/iw,${h}/ih),crop=${w}:${h}`);
-  } else if (fit === 'contain') {
-    const w = targetWidth;
-    const h = targetHeight;
+  if (!aspect || aspect==='keep'){
+    if (maxHeight){ filters.push(`scale=-2:${maxHeight}`); }
+  } else if (fit==='cover'){
+    const w=targetWidth, h=targetHeight;
+    filters.push(`scale=iw*max(${w}/iw\\,${h}/ih):ih*max(${w}/iw\\,${h}/ih),crop=${w}:${h}`);
+  } else if (fit==='contain'){
+    const w=targetWidth, h=targetHeight;
     filters.push(
-      `scale=iw*min(${w}/iw,${h}/ih):ih*min(${w}/iw,${h}/ih),` +
-      `pad=${w}:${h}:((${w}-iw*min(${w}/iw,${h}/ih))/2):((${h}-ih*min(${w}/iw,${h}/ih))/2)`
+      `scale=iw*min(${w}/iw\\,${h}/ih):ih*min(${w}/iw\\,${h}/ih),` +
+      `pad=${w}:${h}:((${w}-iw*min(${w}/iw\\,${h}/ih))/2):((${h}-ih*min(${w}/iw\\,${h}/ih))/2)`
     );
+  }
+
+  if (shouldWatermark()){
+    const wm = `drawbox=x=10:y=H-50:w=180:h=36:color=white@0.14:t=fill`;
+    filters.push(wm);
   }
 
   return filters.join(',');
 }
 
-async function compressVideo(preset, inputData, durationSec) {
-  ffmpeg.FS('writeFile', 'input.mp4', inputData);
-
-  const argsBase = ['-i', 'input.mp4'];
-
-  if (preset.fps) {
-    argsBase.push('-r', String(preset.fps));
+async function ensureFFmpegLoaded(){
+  if (ffmpegReady) return;
+  let createFFmpeg;
+  try{
+    ({ createFFmpeg } = await import('https://unpkg.com/@ffmpeg/ffmpeg@0.12.1/dist/ffmpeg.min.js?module'));
+    ffmpeg = createFFmpeg({ log:false, corePath:'https://unpkg.com/@ffmpeg/core@0.12.1/dist/ffmpeg-core.js' });
+  }catch(_e){
+    // fallback CDN
+    ({ createFFmpeg } = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.1/dist/ffmpeg.min.js?module'));
+    ffmpeg = createFFmpeg({ log:false, corePath:'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.1/dist/ffmpeg-core.js' });
   }
 
-  let filterChain = buildFilter(preset);
+  ffmpeg.setProgress(({ ratio })=>{
+    const percent = Math.min(100, Math.floor((ratio||0)*100));
+    progressBar.style.width = `${percent}%`;
+    progressLabel.textContent = `Processing… ${percent}%`;
+  });
 
-  if (preset.mode === 'size') {
-    const targetBytes = (preset.sizeTargetMB || 25) * 1024 * 1024;
-    const audioKbps = (preset.audioKbps || 128);
-    const audioBits = audioKbps * 1000 * (durationSec || 0);
-    const videoBits = Math.max(300 * 1000 * (durationSec || 0), targetBytes * 8 - audioBits);
-    const videoKbps = Math.floor(videoBits / Math.max(1, durationSec) / 1000);
+  __fflog = [];
+  ffmpeg.setLogger(({ type, message })=>{
+    // keep a short ring buffer
+    __fflog.push(`[${type}] ${message}`);
+    if (__fflog.length>100) __fflog.shift();
+    // console.debug(message); // uncomment for dev
+  });
 
-    argsBase.push('-b:v', `${videoKbps}k`, '-maxrate', `${videoKbps}k`, '-bufsize', `${videoKbps * 2}k`);
-    argsBase.push('-crf', String(preset.crf || 23));
-  } else {
-    argsBase.push('-crf', String(preset.crf || 23));
+  await ffmpeg.load();
+  ffmpegReady = true;
+}
+
+async function readFileAsArrayBuffer(file){ return new Uint8Array(await file.arrayBuffer()); }
+async function getVideoDuration(file){
+  return new Promise((resolve)=>{
+    const url = URL.createObjectURL(file);
+    const video=document.createElement('video');
+    video.preload='metadata'; video.src=url;
+    video.onloadedmetadata=()=>{ const d=video.duration; URL.revokeObjectURL(url); resolve(d); };
+  });
+}
+
+/* ---------- Processing ---------- */
+function startDelayCountdown(ms){
+  const end = Date.now()+ms;
+  const tick=()=>{
+    const left = Math.max(0, end - Date.now());
+    const s = Math.ceil(left/1000);
+    progressLabel.textContent = `Preparing… ${s}s`;
+    if (left>0) setTimeout(tick, 250);
+  };
+  tick();
+}
+
+async function compressWithArgs(args){
+  // overwrite and single-thread to be gentler on mobile
+  const final = ['-y', ...args, '-threads', '1'];
+  await ffmpeg.run(...final);
+}
+
+async function compressVideo(preset, inputData, durationSec){
+  // clean any leftovers
+  try{ ffmpeg.FS('unlink','input.mp4'); }catch(_){}
+  try{ ffmpeg.FS('unlink','output.mp4'); }catch(_){}
+
+  ffmpeg.FS('writeFile','input.mp4', inputData);
+
+  const argsBase = ['-i','input.mp4'];
+
+  if (preset.fps) argsBase.push('-r', String(preset.fps));
+
+  const filterChain = buildFilter(preset);
+
+  // rate control
+  if (preset.mode==='size'){
+    const targetBytes = (preset.sizeTargetMB||25)*1024*1024;
+    const audioKbps   = (preset.audioKbps||128);
+    const videoBits   = Math.max(300*1000*(durationSec||0), targetBytes*8 - audioKbps*1000*(durationSec||0));
+    const videoKbps   = Math.max(300, Math.floor(videoBits/Math.max(1,durationSec)/1000));
+    argsBase.push('-b:v', `${videoKbps}k`, '-maxrate', `${videoKbps}k`, '-bufsize', `${Math.max(600, videoKbps*2)}k`);
+    argsBase.push('-crf', String(preset.crf||23));
+  }else{
+    argsBase.push('-crf', String(preset.crf||23));
   }
 
   if (preset.audioKbps) argsBase.push('-b:a', `${preset.audioKbps}k`);
-  argsBase.push('-c:a', 'aac');
-  argsBase.push('-movflags', 'faststart');
+  argsBase.push('-c:a','aac','-movflags','faststart','-pix_fmt','yuv420p');
 
-  if (shouldWatermark()) {
-    const wm = `drawbox=x=10:y=H-50:w=180:h=36:color=white@0.14:t=fill`;
-    filterChain = filterChain ? `${filterChain},${wm}` : wm;
+  if (filterChain) argsBase.push('-vf', filterChain);
+  argsBase.push('output.mp4');
+
+  // Try with libx264 first, then fallback if encoder missing
+  try{
+    await compressWithArgs(['-c:v','libx264', ...argsBase]);
+  }catch(e){
+    const logText = __fflog.join('\n');
+    if (/Unknown encoder.*libx264/i.test(logText)){
+      // retry without forcing libx264
+      __fflog.push('[info] Retrying without libx264…');
+      await compressWithArgs(argsBase);
+    }else{
+      throw e;
+    }
   }
-  const args = [...argsBase];
-  if (filterChain) args.push('-vf', filterChain);
-  args.push('output.mp4');
 
-  await ffmpeg.run(...args);
-
-  const output = ffmpeg.FS('readFile', 'output.mp4');
-  ffmpeg.FS('unlink', 'input.mp4');
-  ffmpeg.FS('unlink', 'output.mp4');
+  const output = ffmpeg.FS('readFile','output.mp4');
+  // cleanup
+  try{ ffmpeg.FS('unlink','input.mp4'); }catch(_){}
+  try{ ffmpeg.FS('unlink','output.mp4'); }catch(_){}
   return output;
 }
 
-/* ---------- File & Share ---------- */
+async function startProcessing(preset){
+  try{
+    const fileSizeMB = selectedFile.size/(1024*1024);
+    const permission = canRender(fileSizeMB);
+    if (!permission.allowed){
+      showInfoToast(permission.reason);
+      switchToChooseMode();
+      return;
+    }
 
-// "Choose video" opens dialog ONLY if a preset is selected; otherwise neutral tip
-chooseFileBtn.addEventListener('click', (e) => {
-  if (!selectedPresetId) {
-    e.preventDefault();
-    e.stopPropagation();
+    // FREE 720p cap
+    const plan = getPlan();
+    const p = { ...preset };
+    if (plan.name==='free'){
+      const cap = (plan.rules && plan.rules.max_height) ? plan.rules.max_height : 720;
+      if (!p.maxHeight || p.maxHeight>cap) p.maxHeight = cap;
+    }
+
+    // UI: progress visible
+    progressSection.classList.remove('hidden');
+    progressBar.style.width='0%';
+    progressLabel.textContent='Preparing…';
+
+    // quick duration (estimate)
+    let durationSec = null;
+    try{ durationSec = await getVideoDuration(selectedFile); }catch(_){}
+
+    if (p.mode==='size' && durationSec){
+      const est = estimateSizeRangeMB(p, durationSec);
+      if (est){
+        progressLabel.textContent = `Estimate: ≈${formatMB(est.low)}–${formatMB(est.high)} · Preparing…`;
+      }
+    }
+
+    // Optional free delay (with countdown)
+    const delay = getDelay();
+    if (delay>0){ startDelayCountdown(delay); await new Promise(res=>setTimeout(res, delay)); }
+
+    progressLabel.textContent='Loading encoder…';
+    await ensureFFmpegLoaded();
+
+    progressLabel.textContent='Reading video…';
+    const inputData = await readFileAsArrayBuffer(selectedFile);
+    if (!durationSec){ try{ durationSec = await getVideoDuration(selectedFile); }catch(_){} }
+
+    progressLabel.textContent='Compressing… 0%';
+    const result = await compressVideo(p, inputData, durationSec||0);
+
+    // Present result
+    const blob = new Blob([result.buffer], { type:'video/mp4' });
+    const url = URL.createObjectURL(blob);
+    resultVideo.src = url;
+    downloadLink.href = url;
+    downloadLink.download = generateDownloadName(selectedFile.name, p);
+    resultSection.classList.remove('hidden');
+    progressSection.classList.add('hidden');
+    incrementRenderCount();
+
+    const { name } = getPlan();
+    nagMessage.textContent = (name==='free') ? '' : '';
+    // Stay in compress mode so user can re-run with another preset if desired
+  }catch(err){
+    console.error('FFmpeg error:', err, __fflog.join('\n'));
+    showInfoToast('Operation failed.');
+    progressSection.classList.add('hidden');
+    switchToChooseMode();
+  }
+}
+
+function generateDownloadName(originalName, preset){
+  const nameWithoutExt = originalName.replace(/\.[^.]+$/,'');
+  return `${nameWithoutExt}-${preset.id}.mp4`;
+}
+
+/* ---------- File & Share ---------- */
+chooseFileBtn.addEventListener('click',(e)=>{
+  if (!selectedPresetId){
+    e.preventDefault(); e.stopPropagation();
     showInfoToast('Select preset first.');
     return;
   }
   fileInputEl.click();
 });
 
-// When a file is chosen, DO NOT auto-start; switch to Compress mode
-fileInputEl.addEventListener('change', (ev) => {
+fileInputEl.addEventListener('change', async (ev)=>{
   const files = ev.target.files;
-  if (!(files && files.length > 0)) return;
+  if (!(files && files.length>0)) return;
 
-  if (!selectedPresetId) {
-    ev.target.value = '';
-    selectedFile = null;
+  if (!selectedPresetId){
+    ev.target.value=''; selectedFile=null;
     showInfoToast('Select preset first.');
-    switchToChooseMode();
     return;
   }
 
@@ -661,64 +536,39 @@ fileInputEl.addEventListener('change', (ev) => {
   switchToCompressMode();
 });
 
-// Manual compress trigger
-if (compressBtn) {
-  compressBtn.addEventListener('click', async () => {
-    if (!selectedPresetId) {
-      showInfoToast('Select preset first.');
-      return;
-    }
-    if (!selectedFile) {
-      showInfoToast('Choose a video first.');
-      return;
-    }
-    const chosen = presets.find(p => p.id === selectedPresetId);
-    if (!chosen) {
-      showInfoToast('Preset not found. Try again.');
-      switchToChooseMode();
-      return;
-    }
-    try {
-      await startProcessing(chosen);
-    } catch (err) {
-      console.error(err);
-      showInfoToast('Compression failed. Choose a video again.');
-      switchToChooseMode();
-    }
+if (compressBtn){
+  compressBtn.addEventListener('click', async ()=>{
+    if (!selectedFile){ showInfoToast('Choose a video first.'); return; }
+    const chosen = presets.find(p=>p.id===selectedPresetId);
+    if (!chosen){ showInfoToast('Preset not found. Try again.'); return; }
+    await startProcessing(chosen);
   });
 }
 
-shareBtn.addEventListener('click', async () => {
+shareBtn.addEventListener('click', async ()=>{
   if (!downloadLink.href) return;
-  try {
-    if (navigator.share) {
-      await navigator.share({ title: 'Compressed video', url: downloadLink.href });
-    } else {
+  try{
+    if (navigator.share){
+      await navigator.share({ title:'Compressed video', url:downloadLink.href });
+    }else{
       await navigator.clipboard.writeText(downloadLink.href);
       showInfoToast('Link copied to clipboard.');
     }
-  } catch (err) {
-    console.error(err);
-  }
+  }catch(err){ console.error(err); }
 });
 
 /* ---------- Init ---------- */
-async function init() {
-  switchToChooseMode(); // default state
+async function init(){
   await loadPresets();
   renderPresets();
   renderCustomBuilder();
 
   const learn = document.getElementById('learnMorePro');
-  if (learn) learn.onclick = () => showProToast('Custom builder is available in Pro.');
+  if (learn) learn.onclick = () => openLearnModal();
 
-  if ('serviceWorker' in navigator) {
-    try {
-      await navigator.serviceWorker.register('./sw.js');
-    } catch (err) {
-      console.warn('Service worker registration failed', err);
-    }
+  if ('serviceWorker' in navigator){
+    try{ await navigator.serviceWorker.register('./sw.js'); }
+    catch(err){ console.warn('Service worker registration failed', err); }
   }
 }
-
 init();
