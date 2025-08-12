@@ -28,23 +28,54 @@ const fileInputEl           = document.getElementById('fileInput');
 
 let presets = [];
 let selectedFile = null;
-let selectedPresetId = null; // NEW: currently selected preset
+let selectedPresetId = null; // selected preset
 let ffmpeg = null;
 let ffmpegReady = false;
 
-/* ---------- Toast (Pro hint) ---------- */
+/* ---------- Toasts ---------- */
+// Pro-styled toast (sa ikonom i "Pro feature" naslovom)
 function showProToast(msg = 'This feature is available in Pro.') {
   const t = document.getElementById('proToast');
-  const span = document.getElementById('proToastMsg');
   if (!t) return;
+  const span   = document.getElementById('proToastMsg');
+  const icon   = t.querySelector('.toast-icon');
+  const strong = t.querySelector('.toast-text strong');
+  if (icon)   icon.style.display = '';
+  if (strong) {
+    strong.textContent = 'Pro feature';
+    strong.style.display = '';
+  }
   if (span) span.textContent = ' ' + msg + ' ';
   t.classList.remove('hidden');
   clearTimeout(window.__proToastTimer);
-  window.__proToastTimer = setTimeout(() => t.classList.add('hidden'), 2500);
+  window.__proToastTimer = setTimeout(hideProToast, 2200);
 }
+
+// Neutralni toast (bez ikone i bez "Pro feature")
+function showInfoToast(msg = '') {
+  const t = document.getElementById('proToast');
+  if (!t) return;
+  const span   = document.getElementById('proToastMsg');
+  const icon   = t.querySelector('.toast-icon');
+  const strong = t.querySelector('.toast-text strong');
+  if (icon)   icon.style.display = 'none';
+  if (strong) strong.style.display = 'none';
+  if (span) span.textContent = ' ' + msg + ' ';
+  t.classList.remove('hidden');
+  clearTimeout(window.__proToastTimer);
+  window.__proToastTimer = setTimeout(hideProToast, 2000);
+}
+
 function hideProToast() {
   const t = document.getElementById('proToast');
-  if (t) t.classList.add('hidden');
+  if (t) {
+    t.classList.add('hidden');
+    // vrati default (da sledeći Pro toast ima ikonu/naslov)
+    const icon   = t.querySelector('.toast-icon');
+    const strong = t.querySelector('.toast-text strong');
+    if (icon)   icon.style.display = '';
+    if (strong) strong.style.display = '';
+  }
   clearTimeout(window.__proToastTimer);
 }
 window.showProToast = showProToast;
@@ -156,12 +187,10 @@ function createPresetCard(preset) {
   category.className = 'preset-category';
   category.textContent = preset.category;
 
-  // Header: title (left) — category (right)
   header.appendChild(title);
   header.appendChild(category);
   card.appendChild(header);
 
-  // Hint uvek ispod headera
   if (preset.hint) {
     const hintEl = document.createElement('div');
     hintEl.className = 'preset-hint';
@@ -178,7 +207,6 @@ function createPresetCard(preset) {
     header.appendChild(lock);
   }
 
-  // Hover tooltip (desktop)
   if (preset.hint) {
     card.title = preset.hint;
     card.addEventListener('mouseenter', e => showTip(preset.hint, e.clientX, e.clientY));
@@ -186,7 +214,7 @@ function createPresetCard(preset) {
     card.addEventListener('mouseleave', hideTip);
   }
 
-  // NEW: klik SAMO selektuje preset (ne otvara upload, ne startuje obradu)
+  // Klik sada SAMO selektuje preset
   card.addEventListener('click', () => {
     if (locked) {
       showProToast('This preset is available in Pro.');
@@ -325,8 +353,7 @@ function renderCustomBuilder() {
   btn.textContent = 'Compress';
   btn.addEventListener('click', async () => {
     if (!selectedFile) {
-      // Dozvoli programatsko otvaranje bez izabranog preseta (custom flow)
-      fileInputEl.click();
+      fileInputEl.click(); // custom flow može bez pre-izabranog preseta
       return;
     }
     const customPreset = {
@@ -390,7 +417,7 @@ async function startProcessing(preset) {
 
   // === FREE 720p CAP (efektivni preset) ===
   const plan = getPlan();
-  const p = { ...preset }; // clone to avoid mutating original
+  const p = { ...preset };
   if (plan.name === 'free') {
     const cap = (plan.rules && plan.rules.max_height) ? plan.rules.max_height : 720;
     if (!p.maxHeight || p.maxHeight > cap) p.maxHeight = cap;
@@ -402,9 +429,7 @@ async function startProcessing(preset) {
 
   // Read duration quickly (no ffmpeg) to estimate
   let durationSec = null;
-  try {
-    durationSec = await getVideoDuration(selectedFile);
-  } catch (e) { /* ignore */ }
+  try { durationSec = await getVideoDuration(selectedFile); } catch (e) {}
 
   // If size-mode, show rough estimate immediately
   if (p.mode === 'size' && durationSec) {
@@ -428,9 +453,7 @@ async function startProcessing(preset) {
   progressLabel.textContent = 'Reading video...';
   const inputData = await readFileAsArrayBuffer(selectedFile);
 
-  if (!durationSec) {
-    try { durationSec = await getVideoDuration(selectedFile); } catch (e) {}
-  }
+  if (!durationSec) { try { durationSec = await getVideoDuration(selectedFile); } catch (e) {} }
 
   progressLabel.textContent = 'Compressing...';
   const result = await compressVideo(p, inputData, durationSec || 0);
@@ -576,34 +599,37 @@ async function compressVideo(preset, inputData, durationSec) {
 
 /* ---------- File & Share ---------- */
 
-// Block "Choose video" if preset nije izabran (user-click path)
+// "Choose video" otvara file dialog SAMO ako je preset izabran; inače neutralni tip
 chooseFileBtn.addEventListener('click', (e) => {
   if (!selectedPresetId) {
     e.preventDefault();
     e.stopPropagation();
-    showProToast('Select a preset first.');
+    showInfoToast('Select preset first.');
+    return;
   }
+  fileInputEl.click();
 });
 
-// Kad se fajl izabere:
-// - ako je preset izabran → auto-start sa tim presetom
-// - ako nije (npr. custom flow) → samo zapamti fajl, bez auto-starta
+// Ako se nekako izabere fajl bez preseta (npr. programatski), ne pokreći obradu
 fileInputEl.addEventListener('change', async (ev) => {
   const files = ev.target.files;
   if (!(files && files.length > 0)) return;
+
+  if (!selectedPresetId) {
+    // reset i neutralna poruka
+    ev.target.value = '';
+    selectedFile = null;
+    showInfoToast('Select preset first.');
+    return;
+  }
 
   selectedFile = files[0];
   resultSection.classList.add('hidden');
   progressSection.classList.add('hidden');
 
-  if (!selectedPresetId) {
-    // Nema preseta => ne pokreći ništa (npr. koristiće Custom)
-    return;
-  }
-
   const chosen = presets.find(p => p.id === selectedPresetId);
   if (!chosen) {
-    showProToast('Preset not found. Try again.');
+    showInfoToast('Preset not found. Try again.');
     return;
   }
   await startProcessing(chosen);
@@ -616,7 +642,7 @@ shareBtn.addEventListener('click', async () => {
       await navigator.share({ title: 'Compressed video', url: downloadLink.href });
     } else {
       await navigator.clipboard.writeText(downloadLink.href);
-      showProToast('Link copied to clipboard.');
+      showInfoToast('Link copied to clipboard.');
     }
   } catch (err) {
     console.error(err);
