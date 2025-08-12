@@ -24,7 +24,7 @@ const downloadLink          = document.getElementById('downloadLink');
 const shareBtn              = document.getElementById('shareBtn');
 const nagMessage            = document.getElementById('nagMessage');
 const chooseFileBtn         = document.getElementById('chooseFileBtn');
-const compressBtn           = document.getElementById('compressBtn'); // may be null if HTML not updated
+const compressBtn           = document.getElementById('compressBtn'); // may be null
 const fileHint              = document.getElementById('fileHint');    // may be null
 const fileInputEl           = document.getElementById('fileInput');
 
@@ -40,6 +40,41 @@ function openLearnModal(){ const d=document.getElementById('learnModal'); if(d &
 function closeLearnModal(){ const d=document.getElementById('learnModal'); if(d && d.open) d.close(); }
 window.openLearnModal = openLearnModal;
 window.closeLearnModal = closeLearnModal;
+
+/* ---------- Debug overlay (for failures) ---------- */
+function showDebugOverlay(title, body) {
+  const id='__dbg';
+  let el=document.getElementById(id);
+  if(!el){
+    el=document.createElement('div'); el.id=id;
+    Object.assign(el.style,{
+      position:'fixed', inset:'0', background:'rgba(0,0,0,.75)',
+      color:'#e8edf5', zIndex:99999, display:'flex', alignItems:'center', justifyContent:'center', padding:'20px'
+    });
+    const card=document.createElement('div');
+    Object.assign(card.style,{
+      width:'min(900px, 96vw)', maxHeight:'80vh', overflow:'auto',
+      background:'#121723', border:'1px solid #ffffff1a', borderRadius:'14px', boxShadow:'0 10px 40px rgba(0,0,0,.5)'
+    });
+    const head=document.createElement('div');
+    head.style.cssText='display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #ffffff1a;';
+    const h=document.createElement('div'); h.textContent=title||'Details';
+    const x=document.createElement('button'); x.textContent='×';
+    x.onclick=()=>el.remove();
+    x.style.cssText='background:transparent;border:0;color:#e8edf5;font-size:20px;cursor:pointer;';
+    head.appendChild(h); head.appendChild(x);
+
+    const pre=document.createElement('pre');
+    pre.style.cssText='font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; white-space:pre-wrap; padding:12px 16px; margin:0; font-size:12px; line-height:1.4; color:#cfe3ff;';
+    pre.textContent = body||'';
+
+    card.appendChild(head); card.appendChild(pre);
+    el.appendChild(card);
+    document.body.appendChild(el);
+  }else{
+    el.querySelector('pre').textContent = body||'';
+  }
+}
 
 /* ---------- UI: Choose vs Compress ---------- */
 function switchToChooseMode() {
@@ -79,7 +114,7 @@ function showInfoToast(msg='') {
   if (span) span.textContent = ' ' + msg + ' ';
   t.classList.remove('hidden');
   clearTimeout(window.__proToastTimer);
-  window.__proToastTimer = setTimeout(hideProToast, 2000);
+  window.__proToastTimer = setTimeout(hideProToast, 2400);
 }
 function hideProToast(){
   const t = document.getElementById('proToast');
@@ -198,7 +233,7 @@ function renderCustomBuilder(){
     customPanel.innerHTML='';
     customLock.classList.remove('hidden');
     const learn=document.getElementById('learnMorePro');
-    if (learn) learn.onclick = () => openLearnModal(); // always open modal (not locked)
+    if (learn) learn.onclick = () => openLearnModal(); // always open modal
     return;
   }
 
@@ -333,7 +368,6 @@ async function ensureFFmpegLoaded(){
     ({ createFFmpeg } = await import('https://unpkg.com/@ffmpeg/ffmpeg@0.12.1/dist/ffmpeg.min.js?module'));
     ffmpeg = createFFmpeg({ log:false, corePath:'https://unpkg.com/@ffmpeg/core@0.12.1/dist/ffmpeg-core.js' });
   }catch(_e){
-    // fallback CDN
     ({ createFFmpeg } = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.1/dist/ffmpeg.min.js?module'));
     ffmpeg = createFFmpeg({ log:false, corePath:'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.1/dist/ffmpeg-core.js' });
   }
@@ -346,10 +380,8 @@ async function ensureFFmpegLoaded(){
 
   __fflog = [];
   ffmpeg.setLogger(({ type, message })=>{
-    // keep a short ring buffer
     __fflog.push(`[${type}] ${message}`);
-    if (__fflog.length>100) __fflog.shift();
-    // console.debug(message); // uncomment for dev
+    if (__fflog.length>200) __fflog.shift();
   });
 
   await ffmpeg.load();
@@ -366,6 +398,18 @@ async function getVideoDuration(file){
   });
 }
 
+/* ---------- Quick codec sniff (MP4) ---------- */
+async function sniffCodec(file){
+  // Read first ~2MB and search for fourcc strings
+  const slice = file.slice(0, 2*1024*1024);
+  const buf = new Uint8Array(await slice.arrayBuffer());
+  const txt = new TextDecoder('latin1').decode(buf);
+  if (/hvc1|hev1/i.test(txt)) return 'hevc';
+  if (/avc1|avcC/i.test(txt)) return 'h264';
+  if (/vp09/i.test(txt)) return 'vp9';
+  return 'unknown';
+}
+
 /* ---------- Processing ---------- */
 function startDelayCountdown(ms){
   const end = Date.now()+ms;
@@ -379,7 +423,6 @@ function startDelayCountdown(ms){
 }
 
 async function compressWithArgs(args){
-  // overwrite and single-thread to be gentler on mobile
   const final = ['-y', ...args, '-threads', '1'];
   await ffmpeg.run(...final);
 }
@@ -397,7 +440,6 @@ async function compressVideo(preset, inputData, durationSec){
 
   const filterChain = buildFilter(preset);
 
-  // rate control
   if (preset.mode==='size'){
     const targetBytes = (preset.sizeTargetMB||25)*1024*1024;
     const audioKbps   = (preset.audioKbps||128);
@@ -421,7 +463,6 @@ async function compressVideo(preset, inputData, durationSec){
   }catch(e){
     const logText = __fflog.join('\n');
     if (/Unknown encoder.*libx264/i.test(logText)){
-      // retry without forcing libx264
       __fflog.push('[info] Retrying without libx264…');
       await compressWithArgs(argsBase);
     }else{
@@ -430,7 +471,6 @@ async function compressVideo(preset, inputData, durationSec){
   }
 
   const output = ffmpeg.FS('readFile','output.mp4');
-  // cleanup
   try{ ffmpeg.FS('unlink','input.mp4'); }catch(_){}
   try{ ffmpeg.FS('unlink','output.mp4'); }catch(_){}
   return output;
@@ -446,6 +486,14 @@ async function startProcessing(preset){
       return;
     }
 
+    // Quick codec sniff — warn on HEVC (common iPhone)
+    try{
+      const c = await sniffCodec(selectedFile);
+      if (c==='hevc'){
+        showInfoToast('Your video is HEVC (H.265). Decoding may fail in the in-browser encoder.');
+      }
+    }catch(_){}
+
     // FREE 720p cap
     const plan = getPlan();
     const p = { ...preset };
@@ -459,7 +507,7 @@ async function startProcessing(preset){
     progressBar.style.width='0%';
     progressLabel.textContent='Preparing…';
 
-    // quick duration (estimate)
+    // duration (estimate)
     let durationSec = null;
     try{ durationSec = await getVideoDuration(selectedFile); }catch(_){}
 
@@ -482,7 +530,25 @@ async function startProcessing(preset){
     if (!durationSec){ try{ durationSec = await getVideoDuration(selectedFile); }catch(_){} }
 
     progressLabel.textContent='Compressing… 0%';
-    const result = await compressVideo(p, inputData, durationSec||0);
+    let result;
+    try{
+      result = await compressVideo(p, inputData, durationSec||0);
+    }catch(errMain){
+      // As a last resort: remux-only (no transcode) to test pipeline
+      __fflog.push('[info] Main transcode failed. Trying remux (-c copy)…');
+      try{
+        // write again, run -c copy
+        try{ ffmpeg.FS('unlink','input.mp4'); }catch(_){}
+        ffmpeg.FS('writeFile','input.mp4', inputData);
+        await compressWithArgs(['-i','input.mp4','-c','copy','-movflags','faststart','output.mp4']);
+        result = ffmpeg.FS('readFile','output.mp4');
+      }catch(errCopy){
+        // bubble with detailed log overlay
+        const last = __fflog.slice(-80).join('\n');
+        showDebugOverlay('FFmpeg log (last lines)', last);
+        throw errMain;
+      }
+    }
 
     // Present result
     const blob = new Blob([result.buffer], { type:'video/mp4' });
@@ -496,9 +562,9 @@ async function startProcessing(preset){
 
     const { name } = getPlan();
     nagMessage.textContent = (name==='free') ? '' : '';
-    // Stay in compress mode so user can re-run with another preset if desired
+    // Stay in compress mode
   }catch(err){
-    console.error('FFmpeg error:', err, __fflog.join('\n'));
+    console.error('FFmpeg error:', err, __fflog.slice(-80).join('\n'));
     showInfoToast('Operation failed.');
     progressSection.classList.add('hidden');
     switchToChooseMode();
