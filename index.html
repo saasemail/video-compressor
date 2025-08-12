@@ -100,6 +100,47 @@
       <button class="toast-close" aria-label="Close" onclick="hideProToast()">×</button>
     </div>
 
+    <!-- Learn more modal -->
+    <dialog id="learnModal" class="modal">
+      <form method="dialog" class="modal-card">
+        <div class="modal-header">
+          <h3>How the Custom builder works</h3>
+          <button type="button" class="modal-close" aria-label="Close" onclick="closeLearnModal()">×</button>
+        </div>
+
+        <div class="modal-body">
+          <ol class="modal-steps">
+            <li>Choose <strong>Aspect</strong> (or keep source) and <strong>Fit</strong> (cover/contain).</li>
+            <li>Set <strong>Max height</strong> (px) and optionally <strong>FPS</strong>.</li>
+            <li>Pick <strong>Mode</strong>:
+              <ul>
+                <li><strong>Size</strong> → enter <em>Target size (MB)</em>.</li>
+                <li><strong>Quality</strong> → enter <em>CRF</em> (lower = better; 18–28 is typical).</li>
+              </ul>
+            </li>
+            <li>Set <strong>Audio bitrate</strong> (kbps), then click <strong>Compress</strong>.</li>
+          </ol>
+
+          <div class="modal-fields">
+            <div><strong>Aspect</strong> — keep, 16:9, 9:16, 1:1, 4:5</div>
+            <div><strong>Fit</strong> — cover (crop) / contain (pad)</div>
+            <div><strong>Max height</strong> — target height in px</div>
+            <div><strong>FPS</strong> — e.g. 24/30/60</div>
+            <div><strong>Mode</strong> — Size or Quality</div>
+            <div><strong>Target size</strong> — for Size mode (MB)</div>
+            <div><strong>CRF</strong> — for Quality mode (lower = better)</div>
+            <div><strong>Audio</strong> — 96–160 kbps is fine for speech</div>
+          </div>
+
+          <p class="modal-note">On Free plan a 720p cap and a light watermark apply. Pro removes watermark, adds batch, and speeds up encodes.</p>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-secondary" value="close" onclick="closeLearnModal()">Close</button>
+        </div>
+      </form>
+    </dialog>
+
     <script type="module" src="./app.js"></script>
   </body>
 </html>

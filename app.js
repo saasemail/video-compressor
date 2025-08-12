@@ -28,12 +28,12 @@ const fileInputEl           = document.getElementById('fileInput');
 
 let presets = [];
 let selectedFile = null;
-let selectedPresetId = null; // selected preset
+let selectedPresetId = null; // currently selected preset id
 let ffmpeg = null;
 let ffmpegReady = false;
 
 /* ---------- Toasts ---------- */
-// Pro-styled toast (sa ikonom i "Pro feature" naslovom)
+// Pro-styled toast (with icon + "Pro feature" heading)
 function showProToast(msg = 'This feature is available in Pro.') {
   const t = document.getElementById('proToast');
   if (!t) return;
@@ -51,7 +51,7 @@ function showProToast(msg = 'This feature is available in Pro.') {
   window.__proToastTimer = setTimeout(hideProToast, 2200);
 }
 
-// Neutralni toast (bez ikone i bez "Pro feature")
+// Neutral toast (no icon, no "Pro feature")
 function showInfoToast(msg = '') {
   const t = document.getElementById('proToast');
   if (!t) return;
@@ -70,7 +70,7 @@ function hideProToast() {
   const t = document.getElementById('proToast');
   if (t) {
     t.classList.add('hidden');
-    // reset default stanja
+    // restore defaults for the next Pro toast
     const icon   = t.querySelector('.toast-icon');
     const strong = t.querySelector('.toast-text strong');
     if (icon)   icon.style.display = '';
@@ -81,7 +81,7 @@ function hideProToast() {
 window.showProToast = showProToast;
 window.hideProToast = hideProToast;
 
-/* ---------- Tiny tooltip for preset cards (hover) ---------- */
+/* ---------- Small hover tooltip for preset cards ---------- */
 const __tip = document.createElement('div');
 Object.assign(__tip.style, {
   position: 'fixed',
@@ -111,21 +111,21 @@ function hideTip(){ __tip.style.display = 'none'; }
 
 /* ---------- Presets ---------- */
 async function loadPresets() {
-  const resp = await fetch('./presets.json');
+  const resp = await fetch('./presets.json', { cache: 'no-store' });
   presets = await resp.json();
 }
 
-/* Grupisanje/sortiranje “ostalih” preseta — stabilno i predvidivo */
+/* Deterministic grouping/sorting for the "other" presets */
 function groupRank(p) {
   const id = (p.id || '');
-  if (id.startsWith('9x16_'))  return 0;  // Vertical
-  if (id.startsWith('4x5_'))   return 1;  // Portrait
-  if (id.startsWith('1x1_'))   return 2;  // Square
-  if (id.startsWith('16x9_'))  return 3;  // Landscape
-  if (id === 'discord_10mb' || id === 'discord_8mb') return 4;  // Discord (8MB/10MB)
-  if (id.startsWith('im_'))    return 5;  // Chat size-capped
-  if (id.startsWith('email_')) return 6;  // Email size-capped
-  if (id === 'source_friendly')return 7;  // Utility
+  if (id.startsWith('9x16_'))  return 0; // Vertical
+  if (id.startsWith('4x5_'))   return 1; // Portrait
+  if (id.startsWith('1x1_'))   return 2; // Square
+  if (id.startsWith('16x9_'))  return 3; // Landscape
+  if (id === 'discord_10mb' || id === 'discord_8mb') return 4; // Discord
+  if (id.startsWith('im_'))    return 5; // Chat (size-capped)
+  if (id.startsWith('email_')) return 6; // Email (size-capped)
+  if (id === 'source_friendly')return 7; // Utility
   return 8;
 }
 function scoreByResFps(p) {
@@ -137,6 +137,7 @@ function scoreByResFps(p) {
 }
 function sortOthers(arr) {
   return arr.slice().sort((a, b) => {
+    // Locked (Pro) first within the group for clear conversion path
     const la = isPresetLocked(a.id) ? 0 : 1;
     const lb = isPresetLocked(b.id) ? 0 : 1;
     if (la !== lb) return la - lb;
@@ -155,6 +156,7 @@ function renderPresets() {
   topPresetsContainer.innerHTML = '';
   otherPresetsContainer.innerHTML = '';
 
+  // Top 3 free (fixed order)
   const topIds = ['im_16mb', 'email_25mb', 'quick_720p'];
   const byId = new Map(presets.map(p => [p.id, p]));
   topIds.forEach(id => {
@@ -162,6 +164,7 @@ function renderPresets() {
     if (p) topPresetsContainer.appendChild(createPresetCard(p));
   });
 
+  // Others
   const others = presets.filter(p => !topIds.includes(p.id));
   sortOthers(others).forEach(preset => {
     otherPresetsContainer.appendChild(createPresetCard(preset));
@@ -211,7 +214,7 @@ function createPresetCard(preset) {
     card.addEventListener('mouseleave', hideTip);
   }
 
-  // Klik sada SAMO selektuje preset
+  // Click now ONLY selects the preset (doesn't open the file dialog)
   card.addEventListener('click', () => {
     if (locked) {
       showProToast('This preset is available in Pro.');
@@ -226,21 +229,43 @@ function createPresetCard(preset) {
   return card;
 }
 
+/* ---------- Learn more (always enabled) ---------- */
+function openLearnModal() {
+  const dlg = document.getElementById('learnModal');
+  if (!dlg) return;
+  if (dlg.showModal) dlg.showModal();
+  else dlg.classList.add('open');
+}
+function closeLearnModal() {
+  const dlg = document.getElementById('learnModal');
+  if (!dlg) return;
+  if (dlg.close) dlg.close();
+  else dlg.classList.remove('open');
+}
+window.closeLearnModal = closeLearnModal;
+
+function setupLearnMore() {
+  const btn = document.getElementById('learnMorePro');
+  if (!btn) return;
+  btn.disabled = false;
+  btn.onclick = openLearnModal;
+}
+
 /* ---------- Custom builder ---------- */
 function renderCustomBuilder() {
   if (!isCustomEnabled()) {
-    // SAKRIJ prazan panel, prikaži samo lock karticu
+    // Hide empty panel, show the lock card
     customPanel.style.display = 'none';
     customPanel.innerHTML = '';
     customLock.classList.remove('hidden');
-    const learn = document.getElementById('learnMorePro');
-    if (learn) learn.onclick = () => showProToast('Custom builder is a Pro feature.');
+    setupLearnMore(); // always active
     return;
   }
 
-  // PRO: prikaži panel, sakrij lock
+  // PRO: show the panel, hide the lock card
   customPanel.style.display = '';
   customLock.classList.add('hidden');
+  setupLearnMore(); // still active
 
   const fragment = document.createDocumentFragment();
 
@@ -354,7 +379,7 @@ function renderCustomBuilder() {
   btn.textContent = 'Compress';
   btn.addEventListener('click', async () => {
     if (!selectedFile) {
-      fileInputEl.click(); // custom flow može bez pre-izabranog preseta
+      fileInputEl.click(); // custom flow can start by choosing a file
       return;
     }
     const customPreset = {
@@ -416,7 +441,7 @@ async function startProcessing(preset) {
     return;
   }
 
-  // === FREE 720p CAP (efektivni preset) ===
+  // Free plan 720p cap
   const plan = getPlan();
   const p = { ...preset };
   if (plan.name === 'free') {
@@ -428,7 +453,7 @@ async function startProcessing(preset) {
   progressSection.classList.remove('hidden');
   progressBar.style.width = '0%';
 
-  // Read duration quickly (no ffmpeg) to estimate
+  // Read duration quickly (no ffmpeg) for estimate
   let durationSec = null;
   try { durationSec = await getVideoDuration(selectedFile); } catch (e) {}
 
@@ -472,7 +497,7 @@ async function startProcessing(preset) {
   incrementRenderCount();
   const { name } = getPlan();
   nagMessage.textContent = (name === 'free')
-    ? 'Spremno! Trenutno 720p + watermark. Pro uskoro: bez watermarka, batch, ∞ rendersa.'
+    ? 'Done! Free plan currently applies 720p cap + watermark. Pro removes watermark, adds batch, and speeds up encodes.'
     : '';
 }
 
@@ -600,7 +625,8 @@ async function compressVideo(preset, inputData, durationSec) {
 
 /* ---------- File & Share ---------- */
 
-// "Choose video" otvara file dialog SAMO ako je preset izabran; inače neutralni tip
+// "Choose video" opens the file dialog ONLY if a preset is selected.
+// Otherwise show a neutral tip (no Pro styling).
 chooseFileBtn.addEventListener('click', (e) => {
   if (!selectedPresetId) {
     e.preventDefault();
@@ -611,13 +637,12 @@ chooseFileBtn.addEventListener('click', (e) => {
   fileInputEl.click();
 });
 
-// Ako se nekako izabere fajl bez preseta (npr. programatski), ne pokreći obradu
+// If a file gets selected without a preset (e.g. programmatically), don't start processing.
 fileInputEl.addEventListener('change', async (ev) => {
   const files = ev.target.files;
   if (!(files && files.length > 0)) return;
 
   if (!selectedPresetId) {
-    // reset i neutralna poruka
     ev.target.value = '';
     selectedFile = null;
     showInfoToast('Select preset first.');
@@ -656,9 +681,7 @@ async function init() {
   renderPresets();
   renderCustomBuilder();
 
-  const learn = document.getElementById('learnMorePro');
-  if (learn) learn.onclick = () => showProToast('Custom builder is available in Pro.');
-
+  // Service worker
   if ('serviceWorker' in navigator) {
     try {
       await navigator.serviceWorker.register('./sw.js');
