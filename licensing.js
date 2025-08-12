@@ -3,11 +3,11 @@
 
 const FREE_RULES = {
   daily_renders: 1,
-  max_input_mb: 150,
+  max_input_mb: 2048, // ↑ was 150 — bumped so Free works well even with larger phone clips
   max_height: 720,
-  // >>> FREE preset whitelist (samo ova tri su otključana)
+  // >>> FREE preset whitelist (only these three are unlocked)
   presets_enabled: ["im_16mb", "email_25mb", "quick_720p"],
-  // Ostatak je implicitno zaključan (presets_locked ovde je samo informativan)
+  // The rest are implicitly locked (informational here)
   presets_locked: [
     "email_10mb",
     "im_25mb",
@@ -82,7 +82,7 @@ export function canRender(fileSizeMB) {
   const { name, rules } = getPlan();
   if (fileSizeMB > rules.max_input_mb) {
     return { allowed: false, reason: `Input video exceeds ${rules.max_input_mb} MB limit for ${name} plan.` };
-    }
+  }
   if (name === "free" && rules.daily_renders !== null) {
     if (getRenderCount() >= rules.daily_renders) {
       return { allowed: false, reason: `Daily render limit of ${rules.daily_renders} reached.` };
