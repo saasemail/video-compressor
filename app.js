@@ -25,19 +25,19 @@ const qrStringEl            = document.getElementById('qrString');
 const downloadLink          = document.getElementById('downloadLink');
 const shareBtn              = document.getElementById('shareBtn');
 const nagMessage            = document.getElementById('nagMessage');
-const planBadge             = document.getElementById('planBadge');
+const planBadge             = document.getElementById('planBadge'); // može biti null
 
 const learnBtn              = document.getElementById('learnMorePro');
 
 let presets = [];
 let selectedPresetId = null;
 
-// ----- Learn modal -----
+// ===== Learn modal =====
 function openLearnModal(){ const d=document.getElementById('learnModal'); if(d && !d.open) d.showModal(); }
 function closeLearnModal(){ const d=document.getElementById('learnModal'); if(d && d.open) d.close(); }
 window.openLearnModal = openLearnModal; window.closeLearnModal = closeLearnModal;
 
-// ----- Toasts -----
+// ===== Toasts =====
 function showProToast(msg='This feature is available in Pro.') {
   const t = document.getElementById('proToast'); if(!t) return;
   const span = document.getElementById('proToastMsg');
@@ -69,7 +69,7 @@ function hideProToast(){
 }
 window.hideProToast = hideProToast;
 
-// ----- Tooltip (reuse) -----
+// ===== Tooltip (reuse) =====
 const __tip = document.createElement('div');
 Object.assign(__tip.style, {
   position:'fixed', zIndex:10000, display:'none', maxWidth:'280px',
@@ -86,7 +86,7 @@ function showTip(text,x,y){
 }
 function hideTip(){ __tip.style.display='none'; }
 
-// ----- Presets -----
+// ===== Presets =====
 async function loadPresets(){
   const resp = await fetch('./presets.json');
   presets = await resp.json();
@@ -94,10 +94,16 @@ async function loadPresets(){
 function renderPresets(){
   topPresetsContainer.innerHTML='';
   otherPresetsContainer.innerHTML='';
-  const topIds=['lpa_2part']; // jedan gore, ostalo dole
+  const topIds=['lpa_2part'];
   const byId = new Map(presets.map(p=>[p.id,p]));
   topIds.forEach(id=>{ const p=byId.get(id); if(p) topPresetsContainer.appendChild(createPresetCard(p)); });
   presets.filter(p=>!topIds.includes(p.id)).forEach(p=>otherPresetsContainer.appendChild(createPresetCard(p)));
+
+  // auto-select first preset
+  const first = document.querySelector('.preset-card');
+  if (first){
+    first.click();
+  }
 }
 function createPresetCard(preset){
   const card = document.createElement('div');
@@ -122,7 +128,8 @@ function createPresetCard(preset){
     card.addEventListener('mouseleave',hideTip);
   }
 
-  const locked = isPresetLocked(preset.id);
+  // Sve otključano za eSIM
+  const locked = false;
   if (locked){
     card.classList.add('locked');
     const lock=document.createElement('div'); lock.className='lock-icon'; lock.innerHTML='&#128274;';
@@ -140,62 +147,75 @@ function createPresetCard(preset){
   return card;
 }
 
-// ----- Builder -----
+// ===== Builder =====
 function renderCustomBuilder(){
-  const isCustom = true; // za eSIM dozvoljavamo custom svima, Pro gating stavljamo na napredne stvari
-  if (!isCustomEnabled() && !isCustom){
-    customPanel.style.display='none';
-    customPanel.innerHTML='';
-    customLock.classList.remove('hidden');
-    if (learnBtn) learnBtn.onclick = () => openLearnModal();
-    return;
-  }
+  // Builder je uvek dostupan (Pro gating ćemo koristiti za napredne opcije)
   customPanel.style.display='';
   customLock.classList.add('hidden');
 
   const p = presets.find(x=>x.id===selectedPresetId) || presets[0];
 
-  const f = document.createElement('div');
-  f.className='form-grid';
-  f.innerHTML = `
-    <label>SM-DP+ address<input id="sdmp" placeholder="e.g. smdp.example.com"></label>
+  // Napuni direktno #customPanel da grid radi (nema ugnježdene forme)
+  customPanel.innerHTML = `
+    <div>
+      <label>SM-DP+ address</label>
+      <input id="sdmp" placeholder="e.g. smdp.example.com" />
+    </div>
+
     ${p.id==='lpa_3part'
-      ? `<label>Matching ID<input id="match" placeholder="(optional)"></label>`
-      : `<input id="match" type="hidden">`
+      ? `<div><label>Matching ID</label><input id="match" placeholder="(optional)" /></div>`
+      : `<input id="match" type="hidden" />`
     }
-    <label>Activation code<input id="act" placeholder="e.g. 1234-5678-90AB-CDEF"></label>
-    <label>Confirmation code (optional)<input id="conf" placeholder=""></label>
 
-    <label>Output size (px)<input id="qrsize" type="number" min="128" value="512"></label>
-    <label>Quiet zone (px)<input id="qrmarg" type="number" min="0" value="8"></label>
+    <div>
+      <label>Activation code</label>
+      <input id="act" placeholder="e.g. 1234-5678-90AB-CDEF" />
+    </div>
 
-    <label>Raw string (editable)
+    <div>
+      <label>Confirmation code (optional)</label>
+      <input id="conf" placeholder="" />
+    </div>
+
+    <div>
+      <label>Output size (px)</label>
+      <input id="qrsize" type="number" min="128" value="512" />
+    </div>
+
+    <div>
+      <label>Quiet zone (px)</label>
+      <input id="qrmarg" type="number" min="0" value="8" />
+    </div>
+
+    <div style="grid-column:1/-1">
+      <label>Raw string (editable)</label>
       <textarea id="raw" rows="3" class="mono"></textarea>
-    </label>
+    </div>
 
-    <div class="row">
+    <div class="row" style="grid-column:1/-1">
       <button id="btnGen" class="btn btn-primary">Generate QR</button>
-      <button id="btnClear" class="btn">Clear</button>
+      <button id="btnClear" class="btn btn-secondary" type="button">Clear</button>
     </div>
   `;
-  customPanel.innerHTML = '';
-  customPanel.appendChild(f);
 
-  const sdmp = f.querySelector('#sdmp');
-  const match= f.querySelector('#match');
-  const act  = f.querySelector('#act');
-  const conf = f.querySelector('#conf');
-  const raw  = f.querySelector('#raw');
-  const size = f.querySelector('#qrsize');
-  const marg = f.querySelector('#qrmarg');
+  // refs
+  const sdmp = customPanel.querySelector('#sdmp');
+  const match= customPanel.querySelector('#match');
+  const act  = customPanel.querySelector('#act');
+  const conf = customPanel.querySelector('#conf');
+  const raw  = customPanel.querySelector('#raw');
+  const size = customPanel.querySelector('#qrsize');
+  const marg = customPanel.querySelector('#qrmarg');
+  const btnGen = customPanel.querySelector('#btnGen');
+  const btnClear = customPanel.querySelector('#btnClear');
 
   function buildLPA(){
-    const a = (sdmp.value||'').trim();
-    const m = (match.value||'').trim();
-    const c = (conf.value||'').trim();
-    const x = (act.value||'').trim();
-    // Sastavi 2- ili 3-part format po preset-u. Raw polje korisnik može ručno da izmeni.
-    let parts = ['LPA:1'];
+    const a = (sdmp?.value||'').trim();
+    const m = (match?.value||'').trim();
+    const c = (conf?.value||'').trim();
+    const x = (act?.value||'').trim();
+
+    const parts = ['LPA:1'];
     if (a) parts.push(a);
     if (p.id==='lpa_3part'){
       if (m) parts.push(m);
@@ -207,32 +227,45 @@ function renderCustomBuilder(){
     return parts.join('$');
   }
 
-  function syncRaw(){ raw.value = buildLPA(); }
-  sdmp.addEventListener('input', syncRaw);
-  match.addEventListener('input', syncRaw);
-  act.addEventListener('input', syncRaw);
-  conf.addEventListener('input', syncRaw);
+  function syncRaw(){ if (raw) raw.value = buildLPA(); }
+  [sdmp, match, act, conf].forEach(inp => inp && inp.addEventListener('input', syncRaw));
   syncRaw();
 
-  f.querySelector('#btnClear').addEventListener('click', ()=>{
-    sdmp.value = match.value = act.value = conf.value = '';
-    syncRaw();
-    resultSection.classList.add('hidden');
+  // enter = Generate
+  [sdmp, match, act, conf, size, marg, raw].forEach(inp => {
+    if (!inp) return;
+    inp.addEventListener('keydown', (e)=>{
+      if (e.key==='Enter' && !e.shiftKey){
+        e.preventDefault();
+        btnGen?.click();
+      }
+    });
   });
 
-  f.querySelector('#btnGen').addEventListener('click', async ()=>{
+  btnClear?.addEventListener('click', ()=>{
+    if (sdmp) sdmp.value = '';
+    if (match) match.value = '';
+    if (act) act.value = '';
+    if (conf) conf.value = '';
+    syncRaw();
+    resultSection.classList.add('hidden');
+    downloadLink.removeAttribute('href');
+  });
+
+  btnGen?.addEventListener('click', async ()=>{
     const plan = getPlan();
-    planBadge.textContent = (plan && plan.name) ? plan.name.toUpperCase() : '';
-    // Monetizacija: koristimo postojeći canRender brojač (proslijedimo 0 MB)
+    if (planBadge) planBadge.textContent = (plan && plan.name) ? plan.name.toUpperCase() : '';
+
+    // Monetizacija: koristimo postojeći canRender brojač (0 MB)
     const permission = canRender(0);
     if (!permission.allowed){
       showInfoToast(permission.reason);
       return;
     }
 
-    const text = (raw.value||'').trim();
-    if (!text || !text.startsWith('LPA:1')){
-      showInfoToast('Enter valid LPA string (starts with LPA:1)');
+    const text = (raw?.value||'').trim();
+    if (!text || !/^LPA:1\$/i.test(text)){
+      showInfoToast('Enter valid LPA string (starts with LPA:1$)');
       return;
     }
 
@@ -241,12 +274,14 @@ function renderCustomBuilder(){
     if (delay>0){
       progressSection.classList.remove('hidden');
       progressBar.style.width='0%';
-      const end = Date.now()+delay;
+      const start = Date.now();
+      const end = start + delay;
       const tick=()=>{
         const left = Math.max(0, end-Date.now());
         const s = Math.ceil(left/1000);
         progressLabel.textContent = `Preparing… ${s}s`;
-        progressBar.style.width = `${Math.round(100*(1-left/delay))}%`;
+        const pct = Math.round(100*(1-left/delay));
+        progressBar.style.width = `${pct}%`;
         if (left>0) requestAnimationFrame(tick);
       };
       tick();
@@ -255,17 +290,17 @@ function renderCustomBuilder(){
     }
 
     // Render QR
-    const px = Math.max(128, parseInt(size.value,10)||512);
-    const margin = Math.max(0, parseInt(marg.value,10)||8);
+    const px = Math.max(128, parseInt(size?.value,10)||512);
+    const margin = Math.max(0, parseInt(marg?.value,10)||8);
 
     // clear canvas
     const ctx = qrCanvas.getContext('2d');
     ctx.clearRect(0,0,qrCanvas.width,qrCanvas.height);
 
     try{
-      // QRCode lib (qrcode.min.js)
       await QRCode.toCanvas(qrCanvas, text, {
-        width: px, margin,
+        width: px,
+        margin,
         errorCorrectionLevel: 'M'
       });
 
@@ -283,6 +318,7 @@ function renderCustomBuilder(){
         tctx.font = '14px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto';
         tctx.textAlign = 'center';
         tctx.fillText('Generated with eSIM QR (Free)', tmp.width/2, qrCanvas.height + 16);
+        // re-copy nazad
         qrCanvas.width = tmp.width; qrCanvas.height = tmp.height;
         const ctx2 = qrCanvas.getContext('2d');
         ctx2.drawImage(tmp,0,0);
@@ -307,7 +343,7 @@ function renderCustomBuilder(){
   if (learnBtn) learnBtn.onclick = () => openLearnModal();
 }
 
-// ----- Share -----
+// ===== Share =====
 shareBtn.addEventListener('click', async ()=>{
   const text = qrStringEl.textContent || '';
   if (!text) return;
@@ -319,15 +355,17 @@ shareBtn.addEventListener('click', async ()=>{
   }
 });
 
-// ----- Init -----
+// ===== Init =====
 async function init(){
   const plan = getPlan();
-  planBadge.textContent = (plan && plan.name) ? plan.name.toUpperCase() : '';
+  if (planBadge) planBadge.textContent = (plan && plan.name) ? plan.name.toUpperCase() : '';
 
   await loadPresets();
   renderPresets();
-  selectedPresetId = (presets[0] && presets[0].id) || null;
-  renderCustomBuilder();
+
+  // fallback selekcija
+  selectedPresetId = selectedPresetId || (presets[0] && presets[0].id) || null;
+  if (!selectedPresetId) renderCustomBuilder();
 
   if ('serviceWorker' in navigator){
     try{ await navigator.serviceWorker.register('./sw.js'); }

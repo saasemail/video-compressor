@@ -1,84 +1,118 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>eSIM QR Generator</title>
-  <link rel="stylesheet" href="./styles.css">
-  <link rel="manifest" href="./manifest.json">
+
+  <!-- Fonts to match styles.css -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Sora:wght@600;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="./styles.css" />
+  <link rel="manifest" href="./manifest.json" />
 </head>
 <body>
-  <header class="app-header">
-    <h1>eSIM QR Generator</h1>
-    <div class="plan-badge" id="planBadge"></div>
-  </header>
 
-  <main class="container">
-    <section>
-      <h2>Presets</h2>
-      <div id="topPresets" class="presets-grid"></div>
-      <div id="otherPresets" class="presets-grid"></div>
-    </section>
+  <!-- Hero -->
+  <section class="hero">
+    <h1 class="hero-title">
+      eSIM QR <span class="underline">Generator</span>
+    </h1>
+    <p class="hero-subtitle">Offline, privacy-first. Pretvori SM-DP+ i Activation code u QR spreman za skeniranje.</p>
+    <div class="hero-actions">
+      <button class="btn btn-primary" onclick="document.getElementById('customPanel').scrollIntoView({behavior:'smooth'})">Start now</button>
+      <div class="hint">Free sa watermarkom · Pro uklanja watermark i otključava batch/PDF</div>
+    </div>
+  </section>
 
-    <section>
-      <div class="section-head">
-        <h2>Custom Builder</h2>
-        <button id="learnMorePro" class="link">Learn more</button>
-      </div>
-      <div id="customLock" class="locked-panel hidden">
+  <!-- Presets -->
+  <section class="presets-section">
+    <h2 class="section-title">Presets</h2>
+    <div class="section-tip">Izaberi tip LPA stringa (uvek možeš ručno da ga izmeniš ispod).</div>
+
+    <div class="preset-grid top-presets" id="topPresets"></div>
+    <div class="preset-grid" id="otherPresets"></div>
+  </section>
+
+  <!-- Custom Builder -->
+  <section class="custom-section">
+    <h2 class="section-title">Custom Builder</h2>
+
+    <!-- Pro lock panel (za sada ga skrivamo) -->
+    <div id="customLock" class="lock-overlay hidden">
+      <div class="lock-row">
+        <span class="icon-lock">🔒</span>
         <span>Custom builder is a Pro feature.</span>
-        <button class="btn btn-pro" onclick="openLearnModal()">Unlock</button>
       </div>
-      <div id="customPanel"></div>
-    </section>
+      <button class="btn btn-ghost" onclick="openLearnModal()">Unlock</button>
+      <div class="lock-fine">U Pro planu dobijaš batch CSV i PDF A4 sheet.</div>
+    </div>
 
-    <section id="progressSection" class="hidden">
-      <div class="progress">
-        <div id="progressBar" style="width:0%"></div>
-      </div>
-      <div id="progressLabel">Preparing…</div>
-    </section>
+    <!-- Ovdje ubacujemo formu kroz JS -->
+    <div id="customPanel" class="custom-panel"></div>
+  </section>
 
-    <section id="resultSection" class="hidden">
-      <h2>Result</h2>
-      <div class="qr-wrap">
-        <canvas id="qrCanvas"></canvas>
-      </div>
-      <div id="qrString" class="mono small"></div>
-      <div class="actions">
-        <a id="downloadLink" class="btn">Download PNG</a>
-        <button id="shareBtn" class="btn">Copy string</button>
-      </div>
-      <div id="nagMessage" class="nag"></div>
-    </section>
-  </main>
+  <!-- Progress -->
+  <section id="progressSection" class="progress-section hidden">
+    <div class="progress-bar-container">
+      <div id="progressBar" class="progress-bar" style="width:0%"></div>
+    </div>
+    <div id="progressLabel" class="progress-label">Preparing…</div>
+  </section>
+
+  <!-- Result -->
+  <section id="resultSection" class="result-section hidden">
+    <div class="qr-wrap">
+      <canvas id="qrCanvas"></canvas>
+    </div>
+    <div id="qrString" class="hint mono"></div>
+
+    <div class="result-actions">
+      <a id="downloadLink" class="btn btn-secondary">Download PNG</a>
+      <button id="shareBtn" class="btn btn-primary">Copy string</button>
+    </div>
+
+    <div id="nagMessage" class="nag-message"></div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div>Privacy-first · Works offline · No uploads</div>
+  </footer>
 
   <!-- Toast -->
   <div id="proToast" class="toast hidden">
-    <div class="toast-inner">
-      <div class="toast-icon">★</div>
-      <div class="toast-text"><strong>Pro feature</strong><span id="proToastMsg"></span></div>
-    </div>
+    <div class="toast-icon">★</div>
+    <div class="toast-text"><strong>Pro feature</strong> <span id="proToastMsg"></span></div>
+    <button class="toast-close" onclick="hideProToast()">×</button>
   </div>
 
-  <!-- Learn modal -->
+  <!-- Learn more modal -->
   <dialog id="learnModal" class="modal">
-    <h3>Pro features</h3>
-    <ul>
-      <li>No watermark</li>
-      <li>Unlimited QR exports</li>
-      <li>Batch from CSV</li>
-      <li>PDF A4 sheet & logo in center</li>
-    </ul>
-    <div style="margin-top:12px;display:flex;gap:8px;">
-      <button class="btn btn-pro">Get Monthly</button>
-      <button class="btn" onclick="closeLearnModal()">Close</button>
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Pro features</h3>
+        <button class="modal-close" onclick="closeLearnModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <ul class="modal-steps">
+          <li>No watermark</li>
+          <li>Unlimited exports</li>
+          <li>Batch from CSV</li>
+          <li>PDF A4 sheet & logo u centru</li>
+        </ul>
+        <p class="modal-note">Plaćanje preko Paysera (Daily / Monthly).</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary">Get Monthly</button>
+        <button class="btn btn-secondary" onclick="closeLearnModal()">Close</button>
+      </div>
     </div>
   </dialog>
 
   <!-- QR lib -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-
+  <!-- App -->
   <script type="module" src="./app.js"></script>
 </body>
 </html>
