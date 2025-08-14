@@ -4,8 +4,6 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Connectivity QR Toolkit — eSIM & Wi-Fi (Offline)</title>
-
-  <!-- No external CDNs. Fonts are local; safe fallback if missing. -->
   <link rel="stylesheet" href="./styles.css" />
   <link rel="manifest" href="./manifest.json" />
   <meta name="theme-color" content="#0b0e13" />
@@ -23,6 +21,18 @@
     </nav>
   </header>
 
+  <!-- Plan strip (jasna granica Free/Pro) -->
+  <div class="planstrip" role="note" aria-label="Plan information">
+    <div class="planstrip-inner">
+      <span class="chip free">Free</span>
+      <span class="muted">adds a watermark</span>
+      <span class="sep">•</span>
+      <span class="chip pro">Pro</span>
+      <span class="muted">removes watermark & unlocks Batch / PDF Sheets</span>
+      <button class="linklike" onclick="openLearnModal()">See Pro</button>
+    </div>
+  </div>
+
   <!-- Hero -->
   <section class="hero" role="region" aria-labelledby="heroTitle">
     <h1 id="heroTitle" class="hero-title">
@@ -37,6 +47,35 @@
     </div>
   </section>
 
+  <!-- Mini-tools (3 u 1) -->
+  <section class="tools-section" aria-label="Mini tools">
+    <div class="toolcards">
+      <button id="toolEsim" class="toolcard">
+        <div class="toolcard-head">
+          <span class="tool-title">eSIM QR</span>
+          <span class="chip free">Free</span>
+        </div>
+        <div class="tool-desc">LPA builder, validator, PNG/SVG, print sheets</div>
+      </button>
+
+      <button id="toolWifi" class="toolcard">
+        <div class="toolcard-head">
+          <span class="tool-title">Wi-Fi QR</span>
+          <span class="chip free">Free</span>
+        </div>
+        <div class="tool-desc">SSID, WPA2/3, hidden, PNG/SVG, print sheets</div>
+      </button>
+
+      <button id="toolSheets" class="toolcard">
+        <div class="toolcard-head">
+          <span class="tool-title">Label / Sheet Maker</span>
+          <span class="chip pro" id="chipSheets">Pro</span>
+        </div>
+        <div class="tool-desc">A4 / Avery presets, logo overlay, CSV → grid</div>
+      </button>
+    </div>
+  </section>
+
   <!-- Tabs -->
   <section class="tabs-section" role="region" aria-labelledby="tabsTitle">
     <h2 id="tabsTitle" class="section-title">Wizard</h2>
@@ -44,7 +83,7 @@
       <button role="tab" aria-selected="true"  class="tab-btn" data-tab="presets">Presets</button>
       <button role="tab" aria-selected="false" class="tab-btn" data-tab="builder">Builder</button>
       <button role="tab" aria-selected="false" class="tab-btn" data-tab="batch">Batch</button>
-      <button role="tab" aria-selected="false" class="tab-btn" data-tab="export">Export</button>
+      <button role="tab" aria-selected="false" class="tab-btn" data-tab="sheets">Label / Sheets</button>
       <button role="tab" aria-selected="false" class="tab-btn" data-tab="validate">Validate</button>
     </div>
   </section>
@@ -77,7 +116,7 @@
       <span id="printMsg">Awaiting preview…</span>
     </div>
 
-    <!-- Custom builder panel injected by JS -->
+    <!-- Custom builder panel -->
     <div id="customPanel" class="custom-panel" aria-live="polite"></div>
 
     <!-- QR options -->
@@ -115,17 +154,13 @@
 
     <!-- Result -->
     <section id="resultSection" class="result-section hidden" aria-live="polite">
-      <div class="qr-wrap">
-        <canvas id="qrCanvas" aria-label="QR preview"></canvas>
-      </div>
+      <div class="qr-wrap"><canvas id="qrCanvas" aria-label="QR preview"></canvas></div>
       <div id="qrString" class="hint mono"></div>
-
       <div class="result-actions">
         <a id="downloadPNG" class="btn btn-secondary" download="qr.png">Download PNG</a>
         <a id="downloadSVG" class="btn btn-secondary" download="qr.svg">Download SVG</a>
         <button id="copyBtn" class="btn btn-primary">Copy string</button>
       </div>
-
       <div id="nagMessage" class="nag-message"></div>
     </section>
 
@@ -141,7 +176,7 @@
 
   <!-- Batch -->
   <section id="tab-batch" class="panel hidden" role="tabpanel" aria-labelledby="tab-batch-label">
-    <h3 id="tab-batch-label" class="section-title">Batch from CSV</h3>
+    <h3 id="tab-batch-label" class="section-title">Batch from CSV <span class="chip pro">Pro</span></h3>
     <p class="section-tip">Columns: <code>smdp</code>, <code>activation</code>, <code>matching</code> (optional), <code>label</code> (optional).</p>
     <div class="custom-panel">
       <div>
@@ -165,20 +200,24 @@
         <input id="batchMargin" type="number" value="8" min="0" />
       </div>
       <div class="row" style="grid-column:1/-1">
-        <button id="runBatch" class="btn btn-primary">Generate ZIP (PNG+SVG)</button>
-        <button id="runBatchPDF" class="btn btn-secondary">Build A4 PDF Sheet</button>
+        <button id="runBatch" class="btn btn-primary is-locked" aria-disabled="true">
+          <span class="lock">🔒</span> Generate ZIP (PNG+SVG)
+        </button>
+        <button id="runBatchPDF" class="btn btn-secondary is-locked" aria-disabled="true">
+          <span class="lock">🔒</span> Build A4 PDF Sheet
+        </button>
       </div>
-      <div class="small-hint">Free plan limits batch to 1 row and disables PDF; use <em>?devPro=1</em> in URL to simulate Pro.</div>
+      <div class="small-hint">Use <em>?devPro=1</em> in URL to simulate Pro while testing.</div>
     </div>
     <div id="batchStatus" class="section-tip"></div>
   </section>
 
-  <!-- Export -->
-  <section id="tab-export" class="panel hidden" role="tabpanel" aria-labelledby="tab-export-label">
-    <h3 id="tab-export-label" class="section-title">Export / Sheet Maker</h3>
+  <!-- Label / Sheets (mini-alat #3 jasno istaknut) -->
+  <section id="tab-sheets" class="panel hidden" role="tabpanel" aria-labelledby="tab-sheets-label">
+    <h3 id="tab-sheets-label" class="section-title">Label / Sheet Maker <span class="chip pro">Pro</span></h3>
     <div class="custom-panel">
       <div>
-        <label for="sheetPreset">A4 presets</label>
+        <label for="sheetPreset">A4 presets (Avery)</label>
         <select id="sheetPreset">
           <option value="3x4">3×4 (12 per page)</option>
           <option value="4x5">4×5 (20 per page)</option>
@@ -186,33 +225,19 @@
           <option value="custom">Custom grid</option>
         </select>
       </div>
-      <div>
-        <label for="cols">Columns</label>
-        <input id="cols" type="number" min="1" value="3" />
-      </div>
-      <div>
-        <label for="rows">Rows</label>
-        <input id="rows" type="number" min="1" value="4" />
-      </div>
-      <div>
-        <label for="marginMM">Outer margin (mm)</label>
-        <input id="marginMM" type="number" min="0" value="10" />
-      </div>
-      <div>
-        <label for="gapMM">Gap (mm)</label>
-        <input id="gapMM" type="number" min="0" value="4" />
-      </div>
-      <div>
-        <label for="labelText">Text under each QR (optional)</label>
-        <input id="labelText" type="text" placeholder="Label" />
-      </div>
-      <div>
-        <label for="logoFile">Center logo (optional)</label>
-        <input id="logoFile" type="file" accept="image/*" />
-      </div>
+      <div><label for="cols">Columns</label><input id="cols" type="number" min="1" value="3" /></div>
+      <div><label for="rows">Rows</label><input id="rows" type="number" min="1" value="4" /></div>
+      <div><label for="marginMM">Outer margin (mm)</label><input id="marginMM" type="number" min="0" value="10" /></div>
+      <div><label for="gapMM">Gap (mm)</label><input id="gapMM" type="number" min="0" value="4" /></div>
+      <div><label for="labelText">Text under each QR (optional)</label><input id="labelText" type="text" placeholder="Label" /></div>
+      <div><label for="logoFile">Center logo (optional)</label><input id="logoFile" type="file" accept="image/*" /></div>
       <div class="row" style="grid-column:1/-1">
-        <button id="makeSheetFromCurrent" class="btn btn-primary">Make PDF from current QR</button>
-        <button id="previewPDF" class="btn btn-secondary">Preview PDF</button>
+        <button id="makeSheetFromCurrent" class="btn btn-primary is-locked" aria-disabled="true">
+          <span class="lock">🔒</span> Make PDF from current QR
+        </button>
+        <button id="previewPDF" class="btn btn-secondary is-locked" aria-disabled="true">
+          <span class="lock">🔒</span> Preview PDF
+        </button>
       </div>
     </div>
     <div class="pdf-preview" id="pdfPreviewWrap" hidden>
@@ -228,10 +253,7 @@
         <label for="valInput">Input string</label>
         <textarea id="valInput" rows="3" class="mono" placeholder="Paste LPA:1$... or WIFI:..."></textarea>
       </div>
-      <div>
-        <span>Status</span>
-        <div id="valStatus" class="badge">—</div>
-      </div>
+      <div><span>Status</span><div id="valStatus" class="badge">—</div></div>
       <div style="grid-column:1/-1" class="row">
         <button id="btnValidate" class="btn btn-primary">Validate</button>
         <label class="btn btn-secondary" for="decodeFile">Load QR image (decode)</label>
@@ -243,9 +265,7 @@
 
   <!-- Footer / Disclaimer -->
   <footer class="footer" role="contentinfo">
-    <div>
-      Privacy-first · Works offline · No uploads. This tool formats existing eSIM/Wi-Fi data; nothing is sent or stored. You’re responsible for lawful use.
-    </div>
+    <div>Privacy-first · Works offline · No uploads. This tool formats existing eSIM/Wi-Fi data; nothing is sent or stored. You’re responsible for lawful use.</div>
   </footer>
 
   <!-- Toast -->
@@ -267,7 +287,7 @@
           <li>No watermark</li>
           <li>Unlimited exports</li>
           <li>Batch from CSV</li>
-          <li>PDF A4 Sheet & center logo</li>
+          <li>Label / Sheet Maker (PDF A4 & center logo)</li>
         </ul>
         <p class="modal-note">Paysera (Daily / Monthly).</p>
       </div>
@@ -278,7 +298,7 @@
     </div>
   </dialog>
 
-  <!-- Local vendor libs (no CDN) -->
+  <!-- Vendor (local) -->
   <script src="./vendor/qrcode.min.js" defer></script>
   <script src="./vendor/jspdf.umd.min.js" defer></script>
   <script src="./vendor/jszip.min.js" defer></script>
