@@ -12,292 +12,178 @@
 
   <!-- Top bar -->
   <header class="topbar" role="banner">
-    <div class="brand">
-      <strong>Connectivity QR Toolkit</strong>
-      <span class="badge" id="planBadge">FREE</span>
-    </div>
-    <nav aria-label="Language">
-      <button class="btn btn-ghost" id="langToggle" aria-pressed="false">SR</button>
+    <div class="brand"><strong>Connectivity QR Toolkit</strong></div>
+    <nav aria-label="Actions">
+      <button class="btn btn-ghost" id="installPWA" hidden>Install</button>
     </nav>
   </header>
 
-  <!-- Plan strip (jasno Free vs Pro) -->
-  <div class="planstrip" role="note" aria-label="Plan information">
-    <div class="planstrip-inner">
-      <span class="chip free">Free</span>
-      <span class="muted">adds a watermark and limits CSV batch</span>
-      <span class="sep">•</span>
-      <span class="chip pro">Pro</span>
-      <span class="muted">removes watermark & unlocks full Batch / PDF Sheets</span>
-      <button class="linklike" onclick="openLearnModal()">See Pro</button>
-    </div>
-  </div>
-
   <!-- Hero -->
   <section class="hero" role="region" aria-labelledby="heroTitle">
-    <h1 id="heroTitle" class="hero-title">
-      eSIM & Wi-Fi QR <span class="underline">Generator</span>
-    </h1>
-    <p class="hero-subtitle" data-i18n="heroSubtitle">
-      Offline, privacy-first. Build, validate, and print eSIM/Wi-Fi QR codes — no uploads.
-    </p>
+    <h1 id="heroTitle" class="hero-title">eSIM & Wi-Fi QR <span class="underline">Generator</span></h1>
+    <p class="hero-subtitle">Offline, privacy-first. Generate and print eSIM/Wi-Fi QR codes — no uploads.</p>
     <div class="hero-actions">
       <button class="btn btn-primary" id="startNow">Start now</button>
-      <div class="hint" data-i18n="heroHint">Free adds a watermark · Pro removes watermark and unlocks Batch/PDF</div>
+      <div class="hint">Single-file app · Works offline · No data leaves your browser</div>
     </div>
   </section>
 
-  <!-- Mini-tools (3 u 1) -->
+  <!-- Mini tools (3 u 1) -->
   <section class="tools-section" aria-label="Mini tools">
     <div class="toolcards">
       <button id="toolEsim" class="toolcard" aria-controls="view-esim">
         <div class="toolcard-head">
           <span class="tool-title">eSIM QR</span>
-          <span class="chip free">Free</span>
         </div>
-        <div class="tool-desc">LPA builder, batch CSV, validator, PNG/SVG</div>
+        <div class="tool-desc">SM-DP+ + Activation (optional Matching) → PNG</div>
       </button>
 
       <button id="toolWifi" class="toolcard" aria-controls="view-wifi">
         <div class="toolcard-head">
           <span class="tool-title">Wi-Fi QR</span>
-          <span class="chip free">Free</span>
         </div>
-        <div class="tool-desc">SSID, WPA2/3, hidden, PNG/SVG</div>
+        <div class="tool-desc">SSID, WPA2 (or open), Hidden → PNG</div>
       </button>
 
       <button id="toolSheets" class="toolcard" aria-controls="view-sheets">
         <div class="toolcard-head">
-          <span class="tool-title">Label / Sheet Maker</span>
-          <span class="chip pro">Pro</span>
+          <span class="tool-title">PDF Sheet</span>
         </div>
-        <div class="tool-desc">A4 / Avery presets, logo overlay, CSV → grid</div>
+        <div class="tool-desc">Use last generated QR → A4 grid (3×4 / 4×5)</div>
       </button>
     </div>
   </section>
 
-  <!-- === VIEWS (bez Wizard-a) === -->
+  <!-- === VIEWS (po jedan panel po alatu) === -->
 
-  <!-- View: eSIM -->
+  <!-- View: eSIM (Lite) -->
   <section id="view-esim" class="view hidden" aria-label="eSIM tool">
-    <!-- Presets -->
     <section class="panel">
-      <h3 class="section-title">Presets</h3>
-      <div class="section-tip">Pick LPA format (you can edit everything in the builder).</div>
-      <div class="preset-grid top-presets" id="topPresets"></div>
-      <div class="preset-grid" id="otherPresets"></div>
-      <div class="feature-matrix" id="fm-presets"></div>
-    </section>
-
-    <!-- Builder (eSIM) -->
-    <section class="panel">
-      <h3 class="section-title">Builder (eSIM)</h3>
-
-      <div class="good-print" id="printQuality">
-        <span class="dot" id="printDot"></span>
-        <span id="printMsg">Awaiting preview…</span>
-      </div>
-
-      <div id="customPanel" class="custom-panel" aria-live="polite"></div>
-
-      <div class="custom-panel" style="margin-top:1rem" aria-label="QR settings">
-        <div>
-          <label for="ecc">Error correction</label>
-          <select id="ecc"><option value="M">M (default)</option><option value="Q">Q</option><option value="H">H</option></select>
-        </div>
-        <div>
-          <label for="version">Version</label>
-          <input id="version" type="number" min="0" max="40" value="0" />
-          <div class="small-hint">0 = auto</div>
-        </div>
-        <div><label for="qrsize">Output size (px)</label><input id="qrsize" type="number" min="128" value="512" /></div>
-        <div><label for="qrmarg">Quiet zone (px)</label><input id="qrmarg" type="number" min="0" value="8" /></div>
-      </div>
-
-      <section id="progressSection" class="progress-section hidden" aria-live="polite">
-        <div class="progress-bar-container"><div id="progressBar" class="progress-bar" style="width:0%"></div></div>
-        <div id="progressLabel" class="progress-label">Preparing…</div>
-      </section>
-
-      <section id="resultSection" class="result-section hidden" aria-live="polite">
-        <div class="qr-wrap"><canvas id="qrCanvas" aria-label="QR preview"></canvas></div>
-        <div id="qrString" class="hint mono"></div>
-        <div class="result-actions">
-          <a id="downloadPNG" class="btn btn-secondary" download="qr.png">Download PNG</a>
-          <a id="downloadSVG" class="btn btn-secondary" download="qr.svg">Download SVG</a>
-          <button id="copyBtn" class="btn btn-primary">Copy string</button>
-        </div>
-        <div id="nagMessage" class="nag-message"></div>
-      </section>
-
-      <section class="history-section">
-        <div class="history-head">
-          <h4>History (local)</h4>
-          <button id="clearHistory" class="btn btn-ghost">Clear all</button>
-        </div>
-        <div id="historyList" class="history-list"></div>
-      </section>
-
-      <div class="feature-matrix" id="fm-builder"></div>
-    </section>
-
-    <!-- Batch (CSV) -->
-    <section class="panel">
-      <h3 class="section-title">Batch from CSV <span class="chip pro">Pro</span></h3>
-      <p class="section-tip">Columns: <code>smdp</code>, <code>activation</code>, <code>matching</code> (optional), <code>label</code> (optional).</p>
-      <div class="custom-panel">
-        <div><label for="csvFile">CSV file</label><input id="csvFile" type="file" accept=".csv" /></div>
-        <div><label for="batchEcc">Error correction</label><select id="batchEcc"><option value="M">M</option><option value="Q">Q</option><option value="H">H</option></select></div>
-        <div><label for="batchSize">Size (px)</label><input id="batchSize" type="number" value="512" min="128" /></div>
-        <div><label for="batchMargin">Quiet zone (px)</label><input id="batchMargin" type="number" value="8" min="0" /></div>
-        <div class="row" style="grid-column:1/-1">
-          <button id="runBatch" class="btn btn-primary">Generate ZIP (PNG+SVG)</button>
-          <button id="runBatchPDF" class="btn btn-secondary">Build A4 PDF Sheet</button>
-        </div>
-        <div class="small-hint">Free demo limits CSV batch to 1 row & watermarks output. Use <em>?devPro=1</em> in URL to simulate Pro.</div>
-      </div>
-      <div id="batchStatus" class="section-tip"></div>
-      <div class="feature-matrix" id="fm-batch"></div>
-    </section>
-
-    <!-- Validate (eSIM/Wi-Fi string or QR image) -->
-    <section class="panel">
-      <h3 class="section-title">Validate / Decode</h3>
-      <div class="custom-panel">
-        <div style="grid-column:1/-1"><label for="valInput">Input string</label><textarea id="valInput" rows="3" class="mono" placeholder="Paste LPA:1$... or WIFI:..."></textarea></div>
-        <div><span>Status</span><div id="valStatus" class="badge">—</div></div>
-        <div style="grid-column:1/-1" class="row">
-          <button id="btnValidate" class="btn btn-primary">Validate</button>
-          <label class="btn btn-secondary" for="decodeFile">Load QR image (decode)</label>
-          <input id="decodeFile" type="file" accept="image/*" hidden />
-        </div>
-        <div id="valDetails" class="section-tip"></div>
-      </div>
-      <div class="feature-matrix" id="fm-validate"></div>
-    </section>
-  </section>
-
-  <!-- View: Wi-Fi -->
-  <section id="view-wifi" class="view hidden" aria-label="Wi-Fi tool">
-    <section class="panel">
-      <h3 class="section-title">Builder (Wi-Fi)</h3>
+      <h3 class="section-title">eSIM QR</h3>
 
       <div class="good-print">
         <span class="dot ok"></span>
-        <span>Use Q/H ECC & ≥512px for print-ready results.</span>
+        <span>Print-ready preset: ECC Q · 512 px · 8 px quiet zone</span>
       </div>
 
-      <!-- Wi-Fi builder koristi isti #customPanel API, ali u Wi-Fi modu -->
-      <div id="wifiPanelMount" class="custom-panel"></div>
-
-      <div class="custom-panel" style="margin-top:1rem" aria-label="QR settings">
+      <div class="custom-panel" aria-live="polite">
         <div>
-          <label for="ecc">Error correction</label>
-          <select id="ecc-w"><option value="M">M (default)</option><option value="Q">Q</option><option value="H">H</option></select>
+          <label for="smdp">SM-DP+ address</label>
+          <input id="smdp" placeholder="smdp.example.com" autocomplete="off"/>
         </div>
-        <div><label for="qrsize">Output size (px)</label><input id="qrsize-w" type="number" min="128" value="512" /></div>
-        <div><label for="qrmarg">Quiet zone (px)</label><input id="qrmarg-w" type="number" min="0" value="8" /></div>
+        <div>
+          <label for="activation">Activation code</label>
+          <input id="activation" placeholder="1234-5678-90AB-CDEF" autocomplete="off"/>
+        </div>
+        <div>
+          <label for="matching">Matching ID (optional)</label>
+          <input id="matching" placeholder="" autocomplete="off"/>
+        </div>
+        <div style="grid-column:1/-1">
+          <label for="lpaRaw">LPA string</label>
+          <textarea id="lpaRaw" rows="3" class="mono" placeholder="LPA:1$..."></textarea>
+        </div>
       </div>
 
-      <section class="result-section hidden" id="resultSectionW">
-        <div class="qr-wrap"><canvas id="qrCanvasW"></canvas></div>
-        <div id="qrStringW" class="hint mono"></div>
+      <section class="result-section" aria-live="polite">
+        <div class="qr-wrap"><canvas id="qrEsim"></canvas></div>
+        <div id="lpaOut" class="hint mono"></div>
         <div class="result-actions">
-          <a id="downloadPNGW" class="btn btn-secondary" download="wifi-qr.png">Download PNG</a>
-          <a id="downloadSVGW" class="btn btn-secondary" download="wifi-qr.svg">Download SVG</a>
-          <button id="copyBtnW" class="btn btn-primary">Copy string</button>
+          <a id="dlEsim" class="btn btn-secondary" download="esim-qr.png">Download PNG</a>
+          <button id="copyLpa" class="btn btn-primary" type="button">Copy LPA</button>
         </div>
-        <div class="nag-message" id="nagMessageW"></div>
       </section>
-
-      <div class="feature-matrix" id="fm-wifi"></div>
-    </section>
-
-    <!-- Validate je isti panel; koristimo postojeće dugme/decoder -->
-    <section class="panel">
-      <h3 class="section-title">Validate / Decode</h3>
-      <div class="custom-panel">
-        <div style="grid-column:1/-1"><label for="valInput">Input string</label><textarea id="valInputW" rows="3" class="mono" placeholder="Paste WIFI:..."></textarea></div>
-        <div><span>Status</span><div id="valStatusW" class="badge">—</div></div>
-        <div style="grid-column:1/-1" class="row">
-          <button id="btnValidateW" class="btn btn-primary">Validate</button>
-          <label class="btn btn-secondary" for="decodeFileW">Load QR image (decode)</label>
-          <input id="decodeFileW" type="file" accept="image/*" hidden />
-        </div>
-        <div id="valDetailsW" class="section-tip"></div>
-      </div>
     </section>
   </section>
 
-  <!-- View: Label / Sheets -->
-  <section id="view-sheets" class="view hidden" aria-label="Label / Sheet Maker">
+  <!-- View: Wi-Fi (Lite) -->
+  <section id="view-wifi" class="view hidden" aria-label="Wi-Fi tool">
     <section class="panel">
-      <h3 class="section-title">Label / Sheet Maker <span class="chip pro">Pro</span></h3>
+      <h3 class="section-title">Wi-Fi QR</h3>
+
+      <div class="good-print">
+        <span class="dot ok"></span>
+        <span>Print-ready preset: ECC Q · 512 px · 8 px quiet zone</span>
+      </div>
+
       <div class="custom-panel">
         <div>
-          <label for="sheetPreset">A4 presets (Avery)</label>
-          <select id="sheetPreset">
-            <option value="3x4">3×4 (12 per page)</option>
-            <option value="4x5">4×5 (20 per page)</option>
-            <option value="5x7">5×7 (35 per page)</option>
-            <option value="custom">Custom grid</option>
+          <label for="ssid">SSID</label>
+          <input id="ssid" placeholder="Network name" autocomplete="off"/>
+        </div>
+        <div>
+          <label for="security">Security</label>
+          <select id="security">
+            <option value="WPA">WPA/WPA2</option>
+            <option value="nopass">Open (no password)</option>
           </select>
         </div>
-        <div><label for="cols">Columns</label><input id="cols" type="number" min="1" value="3" /></div>
-        <div><label for="rows">Rows</label><input id="rows" type="number" min="1" value="4" /></div>
-        <div><label for="marginMM">Outer margin (mm)</label><input id="marginMM" type="number" min="0" value="10" /></div>
-        <div><label for="gapMM">Gap (mm)</label><input id="gapMM" type="number" min="0" value="4" /></div>
-        <div><label for="labelText">Text under each QR (optional)</label><input id="labelText" type="text" placeholder="Label" /></div>
-        <div><label for="logoFile">Center logo (optional)</label><input id="logoFile" type="file" accept="image/*" /></div>
-        <div class="row" style="grid-column:1/-1">
-          <button id="makeSheetFromCurrent" class="btn btn-primary">Make PDF from current QR</button>
-          <button id="previewPDF" class="btn btn-secondary">Preview PDF</button>
+        <div>
+          <label for="wifiPass">Password</label>
+          <input id="wifiPass" placeholder="" autocomplete="off"/>
         </div>
-        <div class="small-hint">Free demo adds page watermark and limits content. Use <em>?devPro=1</em> to simulate Pro.</div>
+        <div>
+          <label for="hidden">Hidden</label>
+          <select id="hidden">
+            <option value="false">No</option>
+            <option value="true">Yes</option>
+          </select>
+        </div>
+        <div style="grid-column:1/-1">
+          <label for="wifiRaw">WIFI string</label>
+          <textarea id="wifiRaw" rows="3" class="mono" placeholder="WIFI:T:WPA;S:...;P:...;H:false;;"></textarea>
+        </div>
       </div>
-      <div class="pdf-preview" id="pdfPreviewWrap" hidden><iframe id="pdfPreviewFrame" title="PDF preview"></iframe></div>
-      <div class="feature-matrix" id="fm-sheets"></div>
+
+      <section class="result-section" aria-live="polite">
+        <div class="qr-wrap"><canvas id="qrWifi"></canvas></div>
+        <div id="wifiOut" class="hint mono"></div>
+        <div class="result-actions">
+          <a id="dlWifi" class="btn btn-secondary" download="wifi-qr.png">Download PNG</a>
+          <button id="copyWifi" class="btn btn-primary" type="button">Copy WIFI</button>
+        </div>
+      </section>
     </section>
   </section>
 
-  <!-- Footer / Disclaimer -->
-  <footer class="footer" role="contentinfo">
-    <div>Privacy-first · Works offline · No uploads. This tool formats existing eSIM/Wi-Fi data; nothing is sent or stored. You’re responsible for lawful use.</div>
-  </footer>
+  <!-- View: PDF Sheet (Lite) -->
+  <section id="view-sheets" class="view hidden" aria-label="PDF sheet">
+    <section class="panel">
+      <h3 class="section-title">PDF Sheet</h3>
 
-  <!-- Toast -->
-  <div id="proToast" class="toast hidden" role="status" aria-live="polite">
-    <div class="toast-icon">★</div>
-    <div class="toast-text"><strong>Pro feature</strong> <span id="proToastMsg"></span></div>
-    <button class="toast-close" onclick="hideProToast()">×</button>
-  </div>
-
-  <!-- Learn more modal -->
-  <dialog id="learnModal" class="modal" aria-labelledby="learnTitle">
-    <div class="modal-card">
-      <div class="modal-header"><h3 id="learnTitle">Pro features</h3><button class="modal-close" onclick="closeLearnModal()">×</button></div>
-      <div class="modal-body">
-        <ul class="modal-steps">
-          <li>No watermark</li>
-          <li>Unlimited exports</li>
-          <li>Batch from CSV</li>
-          <li>Label / Sheet Maker (PDF A4 & center logo)</li>
-        </ul>
-        <p class="modal-note">Paysera (Daily / Monthly).</p>
+      <div class="custom-panel">
+        <div>
+          <label for="grid">A4 grid</label>
+          <select id="grid">
+            <option value="3x4">3×4 (12 per page)</option>
+            <option value="4x5">4×5 (20 per page)</option>
+          </select>
+        </div>
+        <div>
+          <label for="labelAll">Text under each QR (optional)</label>
+          <input id="labelAll" type="text" placeholder="Label"/>
+        </div>
+        <div class="row" style="grid-column:1/-1">
+          <button id="previewPDF" class="btn btn-secondary" type="button">Preview PDF</button>
+          <button id="downloadPDF" class="btn btn-primary" type="button">Download PDF</button>
+        </div>
+        <div class="hint">Uses the last generated QR (eSIM or Wi-Fi).</div>
       </div>
-      <div class="modal-footer"><button class="btn btn-primary">Get Monthly</button><button class="btn btn-secondary" onclick="closeLearnModal()">Close</button></div>
-    </div>
-  </dialog>
+
+      <div class="pdf-preview" id="pdfPreview" hidden>
+        <iframe id="pdfFrame" title="PDF preview"></iframe>
+      </div>
+    </section>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer" role="contentinfo">
+    <div>Privacy-first · Works offline · No uploads. This tool formats existing eSIM/Wi-Fi data; nothing is sent or stored.</div>
+  </footer>
 
   <!-- Vendor (local) -->
   <script src="./vendor/qrcode.min.js" defer></script>
   <script src="./vendor/jspdf.umd.min.js" defer></script>
-  <script src="./vendor/jszip.min.js" defer></script>
-
-  <!-- ZXing WASM (local). Zajedno sa zxing_reader.wasm u istom folderu -->
-  <script src="./vendor/zxing/zxing_reader.js" defer></script>
-  <!-- (opciono) @zxing/library UMD fallback -->
-  <script src="./vendor/zxing/zxing-browser.min.js" defer></script>
 
   <!-- App -->
   <script type="module" src="./app.js"></script>

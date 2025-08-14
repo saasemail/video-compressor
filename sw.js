@@ -1,18 +1,15 @@
 // sw.js — offline cache (no external CDNs)
-const CACHE = 'qrtoolkit-v1';
+const CACHE = 'qrtoolkit-lite-v1';
 
 const CORE = [
   './',
   './index.html',
   './styles.css',
   './app.js',
-  './licensing.js',
-  './presets.json',
   './manifest.json',
-  // vendor libs (must exist locally)
+  // vendor libs (local)
   './vendor/qrcode.min.js',
-  './vendor/jspdf.umd.min.js',
-  './vendor/jszip.min.js'
+  './vendor/jspdf.umd.min.js'
 ];
 
 self.addEventListener('install', (e)=>{
@@ -44,7 +41,6 @@ self.addEventListener('fetch', (e)=>{
       if (res && res.ok) cache.put(e.request, res.clone());
       return res;
     }catch{
-      // offline fallback if needed
       return cached || new Response('Offline', { status: 503, statusText: 'Offline' });
     }
   })());
