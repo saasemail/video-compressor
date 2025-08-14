@@ -2,13 +2,13 @@
   {
     "id": "lpa_2part",
     "label": "Generic LPA (SM-DP+ + Activation)",
-    "hint": "Standard two-part: LPA:1$<SM-DP+>$<Activation Code>",
+    "hint": "Standard two-part: LPA:1$<SM-DP+>$<Activation Code>[$<Confirmation?>]",
     "category": "eSIM"
   },
   {
     "id": "lpa_3part",
-    "label": "LPA with Matching/Confirmation",
-    "hint": "Three-part: LPA:1$<SM-DP+>$<Matching ID>$<Activation Code>",
+    "label": "LPA with Matching",
+    "hint": "Three-part: LPA:1$<SM-DP+>$<Matching ID>$<Activation Code>[$<Confirmation?>]",
     "category": "eSIM"
   }
 ]

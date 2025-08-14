@@ -1,55 +1,32 @@
-// licensing.js
-// This module encapsulates plan detection (free vs pro) and gating logic.
+// licensing.js — simple Free vs Pro gating for this toolkit.
+// Toggle Pro for dev testing with ?devPro=1 in URL (persists in localStorage).
 
 const FREE_RULES = {
-  daily_renders: 1,
-  max_input_mb: 2048, // ↑ was 150 — bumped so Free works well even with larger phone clips
-  max_height: 720,
-  // >>> FREE preset whitelist (only these three are unlocked)
-  presets_enabled: ["im_16mb", "email_25mb", "quick_720p"],
-  // The rest are implicitly locked (informational here)
-  presets_locked: [
-    "email_10mb",
-    "im_25mb",
-    "im_50mb",
-    "discord_8mb",
-    "9x16_720_30",
-    "9x16_1080_30",
-    "9x16_1080_60",
-    "16x9_720_30",
-    "16x9_1080_30",
-    "1x1_1080_30",
-    "4x5_1080_30",
-    "source_friendly",
-    "custom"
-  ],
+  daily_renders: 20,     // reasonable for testing
   watermark: true,
-  delay_ms: 60000,
-  batch: 1,
-  custom_builder_enabled: false
+  delay_ms: 1500,        // small nudge in Free
+  batch_rows: 1,         // batch limit
+  pdf_enabled: false     // no PDF in Free
 };
 
 const PRO_RULES = {
-  daily_renders: null,
-  max_input_mb: 4000,
-  max_height: 2160,
-  presets_enabled: "all",
+  daily_renders: null,   // unlimited
   watermark: false,
   delay_ms: 0,
-  batch: 10,
-  custom_builder_enabled: true
+  batch_rows: Infinity,
+  pdf_enabled: true
 };
 
 function getQueryParams() {
   const params = {};
   const queryString = window.location.search.substring(1);
+  if (!queryString) return params;
   queryString.split("&").forEach(part => {
     const [key, value] = part.split("=");
     if (key) params[decodeURIComponent(key)] = decodeURIComponent(value || "");
   });
   return params;
 }
-
 function isDevProEnabled() {
   const params = getQueryParams();
   if (params.devPro === "1") {
@@ -60,54 +37,28 @@ function isDevProEnabled() {
 }
 
 export function getPlan() {
-  if (isDevProEnabled()) {
-    return { name: "pro", rules: PRO_RULES };
-  }
+  if (isDevProEnabled()) return { name: "pro", rules: PRO_RULES };
   return { name: "free", rules: FREE_RULES };
 }
+export function isPro(){ return getPlan().name === 'pro'; }
 
+function todayKey(){ return new Date().toISOString().slice(0,10).replace(/-/g,''); }
 function getRenderCount() {
-  const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-  return parseInt(localStorage.getItem(`renderCount-${today}`) || "0", 10);
+  return parseInt(localStorage.getItem(`renderCount-${todayKey()}`) || "0", 10);
 }
-
 export function incrementRenderCount() {
-  const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-  const key = `renderCount-${today}`;
+  const key = `renderCount-${todayKey()}`;
   const current = getRenderCount();
   localStorage.setItem(key, (current + 1).toString());
 }
-
-export function canRender(fileSizeMB) {
+export function canRender(_fileSizeMB) {
   const { name, rules } = getPlan();
-  if (fileSizeMB > rules.max_input_mb) {
-    return { allowed: false, reason: `Input video exceeds ${rules.max_input_mb} MB limit for ${name} plan.` };
-  }
   if (name === "free" && rules.daily_renders !== null) {
     if (getRenderCount() >= rules.daily_renders) {
-      return { allowed: false, reason: `Daily render limit of ${rules.daily_renders} reached.` };
+      return { allowed: false, reason: `Daily limit of ${rules.daily_renders} reached.` };
     }
   }
   return { allowed: true };
 }
-
-export function isPresetLocked(presetId) {
-  const { rules } = getPlan();
-  if (rules.presets_enabled === "all") return false;
-  return rules.presets_enabled.indexOf(presetId) === -1;
-}
-
-export function isCustomEnabled() {
-  const { rules } = getPlan();
-  return rules.custom_builder_enabled;
-}
-
-export function shouldWatermark() {
-  const { rules } = getPlan();
-  return rules.watermark;
-}
-
-export function getDelay() {
-  const { rules } = getPlan();
-  return rules.delay_ms;
-}
+export function shouldWatermark() { return getPlan().rules.watermark; }
+export function getDelay() { return getPlan().rules.delay_ms; }
