@@ -10,7 +10,7 @@
 </head>
 <body>
 
-  <!-- Header / Language -->
+  <!-- Top bar -->
   <header class="topbar" role="banner">
     <div class="brand">
       <strong>Connectivity QR Toolkit</strong>
@@ -21,14 +21,14 @@
     </nav>
   </header>
 
-  <!-- Plan strip (jasna granica Free/Pro) -->
+  <!-- Plan strip (jasno Free vs Pro) -->
   <div class="planstrip" role="note" aria-label="Plan information">
     <div class="planstrip-inner">
       <span class="chip free">Free</span>
-      <span class="muted">adds a watermark</span>
+      <span class="muted">adds a watermark and limits CSV batch</span>
       <span class="sep">•</span>
       <span class="chip pro">Pro</span>
-      <span class="muted">removes watermark & unlocks Batch / PDF Sheets</span>
+      <span class="muted">removes watermark & unlocks full Batch / PDF Sheets</span>
       <button class="linklike" onclick="openLearnModal()">See Pro</button>
     </div>
   </div>
@@ -50,217 +50,214 @@
   <!-- Mini-tools (3 u 1) -->
   <section class="tools-section" aria-label="Mini tools">
     <div class="toolcards">
-      <button id="toolEsim" class="toolcard">
+      <button id="toolEsim" class="toolcard" aria-controls="view-esim">
         <div class="toolcard-head">
           <span class="tool-title">eSIM QR</span>
           <span class="chip free">Free</span>
         </div>
-        <div class="tool-desc">LPA builder, validator, PNG/SVG, print sheets</div>
+        <div class="tool-desc">LPA builder, batch CSV, validator, PNG/SVG</div>
       </button>
 
-      <button id="toolWifi" class="toolcard">
+      <button id="toolWifi" class="toolcard" aria-controls="view-wifi">
         <div class="toolcard-head">
           <span class="tool-title">Wi-Fi QR</span>
           <span class="chip free">Free</span>
         </div>
-        <div class="tool-desc">SSID, WPA2/3, hidden, PNG/SVG, print sheets</div>
+        <div class="tool-desc">SSID, WPA2/3, hidden, PNG/SVG</div>
       </button>
 
-      <button id="toolSheets" class="toolcard">
+      <button id="toolSheets" class="toolcard" aria-controls="view-sheets">
         <div class="toolcard-head">
           <span class="tool-title">Label / Sheet Maker</span>
-          <span class="chip pro" id="chipSheets">Pro</span>
+          <span class="chip pro">Pro</span>
         </div>
         <div class="tool-desc">A4 / Avery presets, logo overlay, CSV → grid</div>
       </button>
     </div>
   </section>
 
-  <!-- Tabs -->
-  <section class="tabs-section" role="region" aria-labelledby="tabsTitle">
-    <h2 id="tabsTitle" class="section-title">Wizard</h2>
-    <div class="tabs" role="tablist" aria-label="Main steps">
-      <button role="tab" aria-selected="true"  class="tab-btn" data-tab="presets">Presets</button>
-      <button role="tab" aria-selected="false" class="tab-btn" data-tab="builder">Builder</button>
-      <button role="tab" aria-selected="false" class="tab-btn" data-tab="batch">Batch</button>
-      <button role="tab" aria-selected="false" class="tab-btn" data-tab="sheets">Label / Sheets</button>
-      <button role="tab" aria-selected="false" class="tab-btn" data-tab="validate">Validate</button>
-    </div>
-  </section>
+  <!-- === VIEWS (bez Wizard-a) === -->
 
-  <!-- Presets -->
-  <section id="tab-presets" class="panel" role="tabpanel" aria-labelledby="tab-presets-label">
-    <h3 id="tab-presets-label" class="section-title">Presets</h3>
-    <div class="section-tip">Pick LPA format (you can always edit in the builder).</div>
-    <div class="preset-grid top-presets" id="topPresets"></div>
-    <div class="preset-grid" id="otherPresets"></div>
-  </section>
-
-  <!-- Builder -->
-  <section id="tab-builder" class="panel hidden" role="tabpanel" aria-labelledby="tab-builder-label">
-    <h3 id="tab-builder-label" class="section-title">Builder</h3>
-
-    <!-- Mode toggle -->
-    <div class="mode-toggle">
-      <label class="radio">
-        <input type="radio" name="mode" value="esim" checked /> <span>eSIM</span>
-      </label>
-      <label class="radio">
-        <input type="radio" name="mode" value="wifi" /> <span>Wi-Fi</span>
-      </label>
-    </div>
-
-    <!-- Live printability indicator -->
-    <div class="good-print" id="printQuality">
-      <span class="dot" id="printDot"></span>
-      <span id="printMsg">Awaiting preview…</span>
-    </div>
-
-    <!-- Custom builder panel -->
-    <div id="customPanel" class="custom-panel" aria-live="polite"></div>
-
-    <!-- QR options -->
-    <div class="custom-panel" style="margin-top:1rem" aria-label="QR settings">
-      <div>
-        <label for="ecc">Error correction</label>
-        <select id="ecc">
-          <option value="M">M (default)</option>
-          <option value="Q">Q</option>
-          <option value="H">H</option>
-        </select>
-      </div>
-      <div>
-        <label for="version">Version</label>
-        <input id="version" type="number" min="0" max="40" value="0" />
-        <div class="small-hint">0 = auto</div>
-      </div>
-      <div>
-        <label for="qrsize">Output size (px)</label>
-        <input id="qrsize" type="number" min="128" value="512" />
-      </div>
-      <div>
-        <label for="qrmarg">Quiet zone (px)</label>
-        <input id="qrmarg" type="number" min="0" value="8" />
-      </div>
-    </div>
-
-    <!-- Progress -->
-    <section id="progressSection" class="progress-section hidden" aria-live="polite">
-      <div class="progress-bar-container">
-        <div id="progressBar" class="progress-bar" style="width:0%"></div>
-      </div>
-      <div id="progressLabel" class="progress-label">Preparing…</div>
+  <!-- View: eSIM -->
+  <section id="view-esim" class="view hidden" aria-label="eSIM tool">
+    <!-- Presets -->
+    <section class="panel">
+      <h3 class="section-title">Presets</h3>
+      <div class="section-tip">Pick LPA format (you can edit everything in the builder).</div>
+      <div class="preset-grid top-presets" id="topPresets"></div>
+      <div class="preset-grid" id="otherPresets"></div>
+      <div class="feature-matrix" id="fm-presets"></div>
     </section>
 
-    <!-- Result -->
-    <section id="resultSection" class="result-section hidden" aria-live="polite">
-      <div class="qr-wrap"><canvas id="qrCanvas" aria-label="QR preview"></canvas></div>
-      <div id="qrString" class="hint mono"></div>
-      <div class="result-actions">
-        <a id="downloadPNG" class="btn btn-secondary" download="qr.png">Download PNG</a>
-        <a id="downloadSVG" class="btn btn-secondary" download="qr.svg">Download SVG</a>
-        <button id="copyBtn" class="btn btn-primary">Copy string</button>
+    <!-- Builder (eSIM) -->
+    <section class="panel">
+      <h3 class="section-title">Builder (eSIM)</h3>
+
+      <div class="good-print" id="printQuality">
+        <span class="dot" id="printDot"></span>
+        <span id="printMsg">Awaiting preview…</span>
       </div>
-      <div id="nagMessage" class="nag-message"></div>
+
+      <div id="customPanel" class="custom-panel" aria-live="polite"></div>
+
+      <div class="custom-panel" style="margin-top:1rem" aria-label="QR settings">
+        <div>
+          <label for="ecc">Error correction</label>
+          <select id="ecc"><option value="M">M (default)</option><option value="Q">Q</option><option value="H">H</option></select>
+        </div>
+        <div>
+          <label for="version">Version</label>
+          <input id="version" type="number" min="0" max="40" value="0" />
+          <div class="small-hint">0 = auto</div>
+        </div>
+        <div><label for="qrsize">Output size (px)</label><input id="qrsize" type="number" min="128" value="512" /></div>
+        <div><label for="qrmarg">Quiet zone (px)</label><input id="qrmarg" type="number" min="0" value="8" /></div>
+      </div>
+
+      <section id="progressSection" class="progress-section hidden" aria-live="polite">
+        <div class="progress-bar-container"><div id="progressBar" class="progress-bar" style="width:0%"></div></div>
+        <div id="progressLabel" class="progress-label">Preparing…</div>
+      </section>
+
+      <section id="resultSection" class="result-section hidden" aria-live="polite">
+        <div class="qr-wrap"><canvas id="qrCanvas" aria-label="QR preview"></canvas></div>
+        <div id="qrString" class="hint mono"></div>
+        <div class="result-actions">
+          <a id="downloadPNG" class="btn btn-secondary" download="qr.png">Download PNG</a>
+          <a id="downloadSVG" class="btn btn-secondary" download="qr.svg">Download SVG</a>
+          <button id="copyBtn" class="btn btn-primary">Copy string</button>
+        </div>
+        <div id="nagMessage" class="nag-message"></div>
+      </section>
+
+      <section class="history-section">
+        <div class="history-head">
+          <h4>History (local)</h4>
+          <button id="clearHistory" class="btn btn-ghost">Clear all</button>
+        </div>
+        <div id="historyList" class="history-list"></div>
+      </section>
+
+      <div class="feature-matrix" id="fm-builder"></div>
     </section>
 
-    <!-- History -->
-    <section class="history-section">
-      <div class="history-head">
-        <h4>History (local)</h4>
-        <button id="clearHistory" class="btn btn-ghost">Clear all</button>
+    <!-- Batch (CSV) -->
+    <section class="panel">
+      <h3 class="section-title">Batch from CSV <span class="chip pro">Pro</span></h3>
+      <p class="section-tip">Columns: <code>smdp</code>, <code>activation</code>, <code>matching</code> (optional), <code>label</code> (optional).</p>
+      <div class="custom-panel">
+        <div><label for="csvFile">CSV file</label><input id="csvFile" type="file" accept=".csv" /></div>
+        <div><label for="batchEcc">Error correction</label><select id="batchEcc"><option value="M">M</option><option value="Q">Q</option><option value="H">H</option></select></div>
+        <div><label for="batchSize">Size (px)</label><input id="batchSize" type="number" value="512" min="128" /></div>
+        <div><label for="batchMargin">Quiet zone (px)</label><input id="batchMargin" type="number" value="8" min="0" /></div>
+        <div class="row" style="grid-column:1/-1">
+          <button id="runBatch" class="btn btn-primary">Generate ZIP (PNG+SVG)</button>
+          <button id="runBatchPDF" class="btn btn-secondary">Build A4 PDF Sheet</button>
+        </div>
+        <div class="small-hint">Free demo limits CSV batch to 1 row & watermarks output. Use <em>?devPro=1</em> in URL to simulate Pro.</div>
       </div>
-      <div id="historyList" class="history-list"></div>
+      <div id="batchStatus" class="section-tip"></div>
+      <div class="feature-matrix" id="fm-batch"></div>
+    </section>
+
+    <!-- Validate (eSIM/Wi-Fi string or QR image) -->
+    <section class="panel">
+      <h3 class="section-title">Validate / Decode</h3>
+      <div class="custom-panel">
+        <div style="grid-column:1/-1"><label for="valInput">Input string</label><textarea id="valInput" rows="3" class="mono" placeholder="Paste LPA:1$... or WIFI:..."></textarea></div>
+        <div><span>Status</span><div id="valStatus" class="badge">—</div></div>
+        <div style="grid-column:1/-1" class="row">
+          <button id="btnValidate" class="btn btn-primary">Validate</button>
+          <label class="btn btn-secondary" for="decodeFile">Load QR image (decode)</label>
+          <input id="decodeFile" type="file" accept="image/*" hidden />
+        </div>
+        <div id="valDetails" class="section-tip"></div>
+      </div>
+      <div class="feature-matrix" id="fm-validate"></div>
     </section>
   </section>
 
-  <!-- Batch -->
-  <section id="tab-batch" class="panel hidden" role="tabpanel" aria-labelledby="tab-batch-label">
-    <h3 id="tab-batch-label" class="section-title">Batch from CSV <span class="chip pro">Pro</span></h3>
-    <p class="section-tip">Columns: <code>smdp</code>, <code>activation</code>, <code>matching</code> (optional), <code>label</code> (optional).</p>
-    <div class="custom-panel">
-      <div>
-        <label for="csvFile">CSV file</label>
-        <input id="csvFile" type="file" accept=".csv" />
+  <!-- View: Wi-Fi -->
+  <section id="view-wifi" class="view hidden" aria-label="Wi-Fi tool">
+    <section class="panel">
+      <h3 class="section-title">Builder (Wi-Fi)</h3>
+
+      <div class="good-print">
+        <span class="dot ok"></span>
+        <span>Use Q/H ECC & ≥512px for print-ready results.</span>
       </div>
-      <div>
-        <label for="batchEcc">Error correction</label>
-        <select id="batchEcc">
-          <option value="M">M</option>
-          <option value="Q">Q</option>
-          <option value="H">H</option>
-        </select>
+
+      <!-- Wi-Fi builder koristi isti #customPanel API, ali u Wi-Fi modu -->
+      <div id="wifiPanelMount" class="custom-panel"></div>
+
+      <div class="custom-panel" style="margin-top:1rem" aria-label="QR settings">
+        <div>
+          <label for="ecc">Error correction</label>
+          <select id="ecc-w"><option value="M">M (default)</option><option value="Q">Q</option><option value="H">H</option></select>
+        </div>
+        <div><label for="qrsize">Output size (px)</label><input id="qrsize-w" type="number" min="128" value="512" /></div>
+        <div><label for="qrmarg">Quiet zone (px)</label><input id="qrmarg-w" type="number" min="0" value="8" /></div>
       </div>
-      <div>
-        <label for="batchSize">Size (px)</label>
-        <input id="batchSize" type="number" value="512" min="128" />
+
+      <section class="result-section hidden" id="resultSectionW">
+        <div class="qr-wrap"><canvas id="qrCanvasW"></canvas></div>
+        <div id="qrStringW" class="hint mono"></div>
+        <div class="result-actions">
+          <a id="downloadPNGW" class="btn btn-secondary" download="wifi-qr.png">Download PNG</a>
+          <a id="downloadSVGW" class="btn btn-secondary" download="wifi-qr.svg">Download SVG</a>
+          <button id="copyBtnW" class="btn btn-primary">Copy string</button>
+        </div>
+        <div class="nag-message" id="nagMessageW"></div>
+      </section>
+
+      <div class="feature-matrix" id="fm-wifi"></div>
+    </section>
+
+    <!-- Validate je isti panel; koristimo postojeće dugme/decoder -->
+    <section class="panel">
+      <h3 class="section-title">Validate / Decode</h3>
+      <div class="custom-panel">
+        <div style="grid-column:1/-1"><label for="valInput">Input string</label><textarea id="valInputW" rows="3" class="mono" placeholder="Paste WIFI:..."></textarea></div>
+        <div><span>Status</span><div id="valStatusW" class="badge">—</div></div>
+        <div style="grid-column:1/-1" class="row">
+          <button id="btnValidateW" class="btn btn-primary">Validate</button>
+          <label class="btn btn-secondary" for="decodeFileW">Load QR image (decode)</label>
+          <input id="decodeFileW" type="file" accept="image/*" hidden />
+        </div>
+        <div id="valDetailsW" class="section-tip"></div>
       </div>
-      <div>
-        <label for="batchMargin">Quiet zone (px)</label>
-        <input id="batchMargin" type="number" value="8" min="0" />
-      </div>
-      <div class="row" style="grid-column:1/-1">
-        <button id="runBatch" class="btn btn-primary is-locked" aria-disabled="true">
-          <span class="lock">🔒</span> Generate ZIP (PNG+SVG)
-        </button>
-        <button id="runBatchPDF" class="btn btn-secondary is-locked" aria-disabled="true">
-          <span class="lock">🔒</span> Build A4 PDF Sheet
-        </button>
-      </div>
-      <div class="small-hint">Use <em>?devPro=1</em> in URL to simulate Pro while testing.</div>
-    </div>
-    <div id="batchStatus" class="section-tip"></div>
+    </section>
   </section>
 
-  <!-- Label / Sheets (mini-alat #3 jasno istaknut) -->
-  <section id="tab-sheets" class="panel hidden" role="tabpanel" aria-labelledby="tab-sheets-label">
-    <h3 id="tab-sheets-label" class="section-title">Label / Sheet Maker <span class="chip pro">Pro</span></h3>
-    <div class="custom-panel">
-      <div>
-        <label for="sheetPreset">A4 presets (Avery)</label>
-        <select id="sheetPreset">
-          <option value="3x4">3×4 (12 per page)</option>
-          <option value="4x5">4×5 (20 per page)</option>
-          <option value="5x7">5×7 (35 per page)</option>
-          <option value="custom">Custom grid</option>
-        </select>
+  <!-- View: Label / Sheets -->
+  <section id="view-sheets" class="view hidden" aria-label="Label / Sheet Maker">
+    <section class="panel">
+      <h3 class="section-title">Label / Sheet Maker <span class="chip pro">Pro</span></h3>
+      <div class="custom-panel">
+        <div>
+          <label for="sheetPreset">A4 presets (Avery)</label>
+          <select id="sheetPreset">
+            <option value="3x4">3×4 (12 per page)</option>
+            <option value="4x5">4×5 (20 per page)</option>
+            <option value="5x7">5×7 (35 per page)</option>
+            <option value="custom">Custom grid</option>
+          </select>
+        </div>
+        <div><label for="cols">Columns</label><input id="cols" type="number" min="1" value="3" /></div>
+        <div><label for="rows">Rows</label><input id="rows" type="number" min="1" value="4" /></div>
+        <div><label for="marginMM">Outer margin (mm)</label><input id="marginMM" type="number" min="0" value="10" /></div>
+        <div><label for="gapMM">Gap (mm)</label><input id="gapMM" type="number" min="0" value="4" /></div>
+        <div><label for="labelText">Text under each QR (optional)</label><input id="labelText" type="text" placeholder="Label" /></div>
+        <div><label for="logoFile">Center logo (optional)</label><input id="logoFile" type="file" accept="image/*" /></div>
+        <div class="row" style="grid-column:1/-1">
+          <button id="makeSheetFromCurrent" class="btn btn-primary">Make PDF from current QR</button>
+          <button id="previewPDF" class="btn btn-secondary">Preview PDF</button>
+        </div>
+        <div class="small-hint">Free demo adds page watermark and limits content. Use <em>?devPro=1</em> to simulate Pro.</div>
       </div>
-      <div><label for="cols">Columns</label><input id="cols" type="number" min="1" value="3" /></div>
-      <div><label for="rows">Rows</label><input id="rows" type="number" min="1" value="4" /></div>
-      <div><label for="marginMM">Outer margin (mm)</label><input id="marginMM" type="number" min="0" value="10" /></div>
-      <div><label for="gapMM">Gap (mm)</label><input id="gapMM" type="number" min="0" value="4" /></div>
-      <div><label for="labelText">Text under each QR (optional)</label><input id="labelText" type="text" placeholder="Label" /></div>
-      <div><label for="logoFile">Center logo (optional)</label><input id="logoFile" type="file" accept="image/*" /></div>
-      <div class="row" style="grid-column:1/-1">
-        <button id="makeSheetFromCurrent" class="btn btn-primary is-locked" aria-disabled="true">
-          <span class="lock">🔒</span> Make PDF from current QR
-        </button>
-        <button id="previewPDF" class="btn btn-secondary is-locked" aria-disabled="true">
-          <span class="lock">🔒</span> Preview PDF
-        </button>
-      </div>
-    </div>
-    <div class="pdf-preview" id="pdfPreviewWrap" hidden>
-      <iframe id="pdfPreviewFrame" title="PDF preview"></iframe>
-    </div>
-  </section>
-
-  <!-- Validate -->
-  <section id="tab-validate" class="panel hidden" role="tabpanel" aria-labelledby="tab-validate-label">
-    <h3 id="tab-validate-label" class="section-title">Validate / Decode</h3>
-    <div class="custom-panel">
-      <div style="grid-column:1/-1">
-        <label for="valInput">Input string</label>
-        <textarea id="valInput" rows="3" class="mono" placeholder="Paste LPA:1$... or WIFI:..."></textarea>
-      </div>
-      <div><span>Status</span><div id="valStatus" class="badge">—</div></div>
-      <div style="grid-column:1/-1" class="row">
-        <button id="btnValidate" class="btn btn-primary">Validate</button>
-        <label class="btn btn-secondary" for="decodeFile">Load QR image (decode)</label>
-        <input id="decodeFile" type="file" accept="image/*" hidden />
-      </div>
-      <div id="valDetails" class="section-tip"></div>
-    </div>
+      <div class="pdf-preview" id="pdfPreviewWrap" hidden><iframe id="pdfPreviewFrame" title="PDF preview"></iframe></div>
+      <div class="feature-matrix" id="fm-sheets"></div>
+    </section>
   </section>
 
   <!-- Footer / Disclaimer -->
@@ -278,10 +275,7 @@
   <!-- Learn more modal -->
   <dialog id="learnModal" class="modal" aria-labelledby="learnTitle">
     <div class="modal-card">
-      <div class="modal-header">
-        <h3 id="learnTitle">Pro features</h3>
-        <button class="modal-close" onclick="closeLearnModal()">×</button>
-      </div>
+      <div class="modal-header"><h3 id="learnTitle">Pro features</h3><button class="modal-close" onclick="closeLearnModal()">×</button></div>
       <div class="modal-body">
         <ul class="modal-steps">
           <li>No watermark</li>
@@ -291,10 +285,7 @@
         </ul>
         <p class="modal-note">Paysera (Daily / Monthly).</p>
       </div>
-      <div class="modal-footer">
-        <button class="btn btn-primary">Get Monthly</button>
-        <button class="btn btn-secondary" onclick="closeLearnModal()">Close</button>
-      </div>
+      <div class="modal-footer"><button class="btn btn-primary">Get Monthly</button><button class="btn btn-secondary" onclick="closeLearnModal()">Close</button></div>
     </div>
   </dialog>
 
@@ -302,6 +293,12 @@
   <script src="./vendor/qrcode.min.js" defer></script>
   <script src="./vendor/jspdf.umd.min.js" defer></script>
   <script src="./vendor/jszip.min.js" defer></script>
+
+  <!-- ZXing WASM (local). Zajedno sa zxing_reader.wasm u istom folderu -->
+  <script src="./vendor/zxing/zxing_reader.js" defer></script>
+  <!-- (opciono) @zxing/library UMD fallback -->
+  <script src="./vendor/zxing/zxing-browser.min.js" defer></script>
+
   <!-- App -->
   <script type="module" src="./app.js"></script>
 </body>
